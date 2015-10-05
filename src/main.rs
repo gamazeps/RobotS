@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 struct Actor {
     // VecDeque is the current recommendation for FIFOs.
@@ -73,10 +74,27 @@ fn main() {
     actor_2.send("Hello world 2!".to_string());
     actor_1.send("Hello world 1-2!".to_string());
 
-    loop {
-        let mut queue = shared_queue.lock().unwrap();
-        if let Some(actor) = queue.pop_front() {
-            actor.lock().unwrap().treat_messages();
+    // This clone is needed as the thread takes ownership on its environment, without it we could
+    // not clone shared_queue again, and thus we could not create new ActorWrapper.
+    let inner_queue = shared_queue.clone();
+    let handle = thread::spawn(move || {
+        loop {
+            let mut queue = inner_queue.lock().unwrap();
+            if let Some(actor) = queue.pop_front() {
+                actor.lock().unwrap().treat_messages();
+            }
         }
-    }
+    });
+
+    // The message should be printed.
+    let mut actor_3 = ActorWrapper::new(
+        Arc::new(Mutex::new(Actor::new(VecDeque::new()))),
+        shared_queue.clone());
+    actor_3.send("Hello world 3!".to_string());
+
+    thread::sleep_ms(1000);
+    actor_3.send("Hello world again 3!".to_string());
+
+    // Without it we would return from main.
+    handle.join().unwrap();
 }
