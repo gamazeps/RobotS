@@ -1,100 +1,116 @@
 use std::collections::VecDeque;
+use std::mem;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
 struct Actor {
-    // VecDeque is the current recommendation for FIFOs.
-    // Right now this is a simple FIFO for messages to be printed.
-    messages_queue: VecDeque<String>,
+    // TODO(gamazeps): Need to add Arc<Mutex<>> for this to be Send.
+    ptr: *mut ActorInner,
 }
 
 impl Actor {
-    fn new(messages: VecDeque<String>) -> Actor {
+    fn new(queue: Arc<Mutex<VecDeque<Actor>>>) -> Actor {
+        let ptr = Box::new(ActorInner::new(queue));
         Actor {
-           messages_queue: messages,
+            ptr: unsafe {mem::transmute(ptr)
+            }
         }
     }
 
-    // Right now the send and treat_messages methods are not in the same structs, which is a bad
-    // API, this will be changed once the main features are working.
-    fn treat_messages(&mut self) {
-        if let Some(s) = self.messages_queue.pop_front() {
+    fn inner(&self) -> &ActorInner {
+        unsafe {&*self.ptr}
+    }
+
+    fn inner_mut(&mut self) -> &mut ActorInner {
+        unsafe {&mut *self.ptr}
+    }
+
+    fn transmute_inner_mut(&self) -> &mut ActorInner {
+        unsafe {&mut *self.ptr}
+    }
+
+    fn receive(&self, message: String) {
+        self.transmute_inner_mut().receive(message);
+    }
+
+    fn treat(&self) {
+        self.transmute_inner_mut().treat();
+    }
+
+    fn treat_all(&self) {
+        self.transmute_inner_mut().treat_all();
+    }
+}
+
+struct ActorInner {
+    messages: VecDeque<String>,
+    actor_queue: Arc<Mutex<VecDeque<Actor>>>,
+}
+
+impl ActorInner {
+    fn new(queue: Arc<Mutex<VecDeque<Actor>>>) -> ActorInner {
+        ActorInner {
+            messages: VecDeque::new(),
+            actor_queue: queue,
+        }
+    }
+
+    fn receive(&mut self, message: String) {
+        self.messages.push_back(message);
+        {
+            let mut queue = self.actor_queue.lock().unwrap();
+            queue.push_back(self.actor());
+        }
+    }
+
+    fn treat(&mut self) {
+        if let Some(s) = self.messages.pop_front() {
             println!("{}", s);
         }
     }
-}
 
-// The ActorWrapper struct is a way to be able to add Actors to the FIFO while staying safe and
-// clean.
-struct ActorWrapper {
-    // Since the FIFO will be acccessed in a concurrent manner, wrapping it around an Arc and Mutex
-    // is needed.
-    // This FIFO contains Actors wrapped in the same way for the same reason.
-    worker_queue: Arc<Mutex<VecDeque<Arc<Mutex<Actor>>>>>,
-    // Having an inner actor is needed as it is extremely messy to have the actor add itself to the
-    // FIFO.
-    // The Actor is put in an Arc to avoid dangling pointers, and the Mutex is there for concurrent
-    // mutability.
-    actor: Arc<Mutex<Actor>>,
-}
-
-impl ActorWrapper {
-    fn new(
-        actor: Arc<Mutex<Actor>>,
-        queue: Arc<Mutex<VecDeque<Arc<Mutex<Actor>>>>>) -> ActorWrapper {
-        ActorWrapper {
-            worker_queue: queue,
-            actor: actor,
+    fn treat_all(&mut self) {
+        while let Some(s) = self.messages.pop_front() {
+            println!("{}", s);
         }
     }
 
-    fn send(&mut self, message: String) {
-        {
-            let mut actor = self.actor.lock().unwrap();
-            actor.messages_queue.push_back(message);
-        }
-
-        let mut queue = self.worker_queue.lock().unwrap();
-        queue.push_back(self.actor.clone());
-    }
-}
-
-fn main() {
-    let shared_queue: Arc<Mutex<VecDeque<_>>> = Arc::new(Mutex::new(VecDeque::new()));
-
-    let mut actor_1 = ActorWrapper::new(
-        Arc::new(Mutex::new(Actor::new(VecDeque::new()))),
-        shared_queue.clone());
-    let mut actor_2 = ActorWrapper::new(
-        Arc::new(Mutex::new(Actor::new(VecDeque::new()))),
-        shared_queue.clone());
-
-    // The messages should be printed in this order.
-    actor_1.send("Hello world 1-1!".to_string());
-    actor_2.send("Hello world 2!".to_string());
-    actor_1.send("Hello world 1-2!".to_string());
-
-    // This clone is needed as the thread takes ownership on its environment, without it we could
-    // not clone shared_queue again, and thus we could not create new ActorWrapper.
-    let inner_queue = shared_queue.clone();
-    let handle = thread::spawn(move || {
-        loop {
-            let mut queue = inner_queue.lock().unwrap();
-            if let Some(actor) = queue.pop_front() {
-                actor.lock().unwrap().treat_messages();
+    fn actor(&self) -> Actor {
+        Actor{
+            ptr: unsafe {
+                mem::transmute(self)
             }
         }
-    });
+    }
+}
 
-    // The message should be printed.
-    let mut actor_3 = ActorWrapper::new(
-        Arc::new(Mutex::new(Actor::new(VecDeque::new()))),
-        shared_queue.clone());
-    actor_3.send("Hello world 3!".to_string());
+fn spawn_consumer(actor_queue: Arc<Mutex<VecDeque<Actor>>>) -> thread::JoinHandle<usize> {
+    thread::spawn(move || {
+        loop {
+            let mut actor = None;
+            {
+                let mut queue = actor_queue.lock().unwrap();
+                actor = queue.pop_front();
+            }
+            if let Some(actor) = actor {
+                actor.treat();
+            }
+        }
+    })
+}
 
-    thread::sleep_ms(1000);
-    actor_3.send("Hello world again 3!".to_string());
 
-    // Without it we would return from main.
-    handle.join().unwrap();
+fn main() {
+    let actor_queue = Arc::new(Mutex::new(VecDeque::new()));
+    let actor = Actor::new(actor_queue);
+
+    actor.receive("message 1".to_string());
+    actor.receive("message 2".to_string());
+    actor.receive("message 3".to_string());
+
+    let handle = spawn_consumer(actor_queue.clone());
+
+    handle.join();
+
+    println!("Hello World");
 }
