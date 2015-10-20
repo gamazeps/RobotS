@@ -2,8 +2,6 @@ use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, Weak};
 
-#[feature(weak_arc)]
-
 enum Message {
     Command(String),
     Data(Box<Any + Send>),
@@ -124,11 +122,15 @@ fn main() {
 
     let actor_system = ActorSystem::new();
     ActorSystem::init(actor_system.clone());
-    let actor_ref = actor_system.spawn_actor("actor_1".to_string());
+    let actor_ref_1 = actor_system.spawn_actor("actor_1".to_string());
+    let actor_ref_2 = actor_system.spawn_actor("actor_2".to_string());
 
-    actor_system.send_to_actor(actor_ref.clone(), Message::Command(command));
-    actor_system.send_to_actor(actor_ref.clone(), Message::Data(Box::new(message)));
-    actor_system.send_to_actor(actor_ref.clone(), Message::Data(Box::new(3i32)));
+    {
+        let actor = actor_ref_1.lock().unwrap();
+        actor.send_message(actor_ref_2.clone(), Message::Command(command));
+        actor.send_message(actor_ref_2.clone(), Message::Data(Box::new(message)));
+        actor.send_message(actor_ref_2.clone(), Message::Data(Box::new(3i32)));
+    }
 
     actor_system.handle_actor_message();
     actor_system.handle_actor_message();
