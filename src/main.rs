@@ -1,6 +1,8 @@
 use std::any::Any;
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
+
+#[feature(weak_arc)]
 
 enum Message {
     Command(String),
@@ -12,18 +14,21 @@ type ActorRef = Arc<Mutex<Actor>>;
 trait Actor {
     fn receive(&mut self, Message);
     fn handle_message(&mut self);
+    fn send_message(&self, actor_ref: ActorRef, message: Message);
 }
 
 struct Printer {
     _name: String,
     message_queue: VecDeque<Message>,
+    actor_system: Weak<ActorSystem>,
 }
 
 impl Printer {
-    fn new(name: String) -> Printer {
+    fn new(name: String, actor_system: Weak<ActorSystem>) -> Printer {
         Printer {
             _name: name,
             message_queue: VecDeque::new(),
+            actor_system: actor_system,
         }
     }
 }
@@ -48,6 +53,11 @@ impl Actor for Printer {
             }
         }
     }
+
+    fn send_message(&self, actor_ref: ActorRef, message: Message) {
+        self.actor_system.upgrade().unwrap().send_to_actor(actor_ref, message);
+    }
+
 }
 
 struct ActorSystem {
@@ -55,19 +65,30 @@ struct ActorSystem {
     // There is currently an issue with having an ActorRef as a Arc<Mutex<Actor + Eq + Hash>>.
     actors_table: Mutex<Vec<ActorRef>>,
     actors_queue: Arc<Mutex<VecDeque<ActorRef>>>,
+    myself: Mutex<Option<Weak<ActorSystem>>>,
 }
 
 
 impl ActorSystem {
-    fn new() -> ActorSystem {
-        ActorSystem {
+    fn new() -> Arc<ActorSystem> {
+        Arc::new(ActorSystem {
             actors_table: Mutex::new(Vec::new()),
             actors_queue: Arc::new(Mutex::new(VecDeque::new())),
-        }
+            myself: Mutex::new(None),
+        })
+    }
+
+    fn init(me: Arc<ActorSystem>) {
+        *me.myself.lock().unwrap() = Some(Arc::downgrade(&me));
+    }
+
+
+    fn myself(&self) -> Option<Weak<ActorSystem>> {
+        self.myself.lock().unwrap().clone()
     }
 
     fn spawn_actor(&self, name: String) -> ActorRef {
-        let actor_ref = Arc::new(Mutex::new(Printer::new(name)));
+        let actor_ref = Arc::new(Mutex::new(Printer::new(name, self.myself().unwrap())));
         {
             let mut actors_table = self.actors_table.lock().unwrap();
             actors_table.push(actor_ref.clone());
@@ -102,6 +123,7 @@ fn main() {
     let command = "This is a command".to_string();
 
     let actor_system = ActorSystem::new();
+    ActorSystem::init(actor_system.clone());
     let actor_ref = actor_system.spawn_actor("actor_1".to_string());
 
     actor_system.send_to_actor(actor_ref.clone(), Message::Command(command));
