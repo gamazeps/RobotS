@@ -1,5 +1,5 @@
 use std::any::Any;
-use std::collections::{HashSet, VecDeque};
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 enum Message {
@@ -15,14 +15,14 @@ trait Actor {
 }
 
 struct Printer {
-    name: String,
+    _name: String,
     message_queue: VecDeque<Message>,
 }
 
 impl Printer {
     fn new(name: String) -> Printer {
         Printer {
-            name: name,
+            _name: name,
             message_queue: VecDeque::new(),
         }
     }
@@ -85,19 +85,30 @@ impl ActorSystem {
             actors_queue.push_back(actor_ref);
         }
     }
+
+    fn handle_actor_message(&self) {
+        let actor_ref;
+        {
+            actor_ref = self.actors_queue.lock().unwrap().pop_front();
+        }
+        if let Some(actor) = actor_ref {
+            actor.lock().unwrap().handle_message();
+        }
+    }
 }
 
 fn main() {
     let message = "This is a message".to_string();
     let command = "This is a command".to_string();
 
-    let mut actor = Printer::new("actor_1".to_string());
+    let actor_system = ActorSystem::new();
+    let actor_ref = actor_system.spawn_actor("actor_1".to_string());
 
-    actor.receive(Message::Command(command));
-    actor.receive(Message::Data(Box::new(message)));
-    actor.receive(Message::Data(Box::new(3i32)));
+    actor_system.send_to_actor(actor_ref.clone(), Message::Command(command));
+    actor_system.send_to_actor(actor_ref.clone(), Message::Data(Box::new(message)));
+    actor_system.send_to_actor(actor_ref.clone(), Message::Data(Box::new(3i32)));
 
-    actor.handle_message();
-    actor.handle_message();
-    actor.handle_message();
+    actor_system.handle_actor_message();
+    actor_system.handle_actor_message();
+    actor_system.handle_actor_message();
 }
