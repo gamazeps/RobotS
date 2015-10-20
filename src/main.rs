@@ -2,7 +2,7 @@ use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, Weak};
 
-#[derive(Clone)]
+// #[derive(Clone)]
 enum Message {
     Command(String),
     Data(Box<Any + Send>),
@@ -15,6 +15,7 @@ trait Actor {
     fn handle_message(&mut self);
     fn send_message(&self, actor_ref: ActorRef, message: Message);
     fn broadcast(&self, message: Message);
+    fn send_to_first(&self, message: Message);
 }
 
 struct Printer {
@@ -60,10 +61,17 @@ impl Actor for Printer {
         self.actor_system.upgrade().unwrap().send_to_actor(actor_ref, message);
     }
 
+    fn send_to_first(&self, message: Message) {
+        let actor_ref = self.known_actors[0].clone();
+        self.send_message(actor_ref, message);
+    }
+
     fn broadcast(&self, message: Message) {
-        for actor_ref in self.known_actors.iter() {
-            self.send_message(actor_ref.clone(), message.clone());
-        }
+        // TODO(gamazeps): This should use Arc<Message> instead of regular Message, it may imply to
+        // change this all over the code.
+        //for actor_ref in self.known_actors.iter() {
+        //    self.send_message(actor_ref.clone(), message.clone());
+        //}
     }
 }
 
@@ -137,9 +145,9 @@ fn main() {
 
     {
         let actor = actor_ref_1.lock().unwrap();
-        actor.broadcast(Message::Command(command));
-        actor.broadcast(Message::Data(Box::new(message)));
-        actor.broadcast(Message::Data(Box::new(3i32)));
+        actor.send_to_first(Message::Command(command));
+        actor.send_to_first(Message::Data(Box::new(message)));
+        actor.send_to_first(Message::Data(Box::new(3i32)));
     }
 
     actor_system.handle_actor_message();
