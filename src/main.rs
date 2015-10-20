@@ -2,6 +2,7 @@ use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, Weak};
 
+#[derive(Clone)]
 enum Message {
     Command(String),
     Data(Box<Any + Send>),
@@ -13,20 +14,23 @@ trait Actor {
     fn receive(&mut self, Message);
     fn handle_message(&mut self);
     fn send_message(&self, actor_ref: ActorRef, message: Message);
+    fn broadcast(&self, message: Message);
 }
 
 struct Printer {
     _name: String,
     message_queue: VecDeque<Message>,
     actor_system: Weak<ActorSystem>,
+    known_actors: Vec<ActorRef>,
 }
 
 impl Printer {
-    fn new(name: String, actor_system: Weak<ActorSystem>) -> Printer {
+    fn new(name: String, actor_system: Weak<ActorSystem>, known_actors: Vec<ActorRef>) -> Printer {
         Printer {
             _name: name,
             message_queue: VecDeque::new(),
             actor_system: actor_system,
+            known_actors: known_actors,
         }
     }
 }
@@ -56,6 +60,11 @@ impl Actor for Printer {
         self.actor_system.upgrade().unwrap().send_to_actor(actor_ref, message);
     }
 
+    fn broadcast(&self, message: Message) {
+        for actor_ref in self.known_actors.iter() {
+            self.send_message(actor_ref.clone(), message.clone());
+        }
+    }
 }
 
 struct ActorSystem {
@@ -85,8 +94,8 @@ impl ActorSystem {
         self.myself.lock().unwrap().clone()
     }
 
-    fn spawn_actor(&self, name: String) -> ActorRef {
-        let actor_ref = Arc::new(Mutex::new(Printer::new(name, self.myself().unwrap())));
+    fn spawn_actor(&self, name: String, known_actors: Vec<ActorRef>) -> ActorRef {
+        let actor_ref = Arc::new(Mutex::new(Printer::new(name, self.myself().unwrap(), known_actors)));
         {
             let mut actors_table = self.actors_table.lock().unwrap();
             actors_table.push(actor_ref.clone());
@@ -114,6 +123,7 @@ impl ActorSystem {
             actor.lock().unwrap().handle_message();
         }
     }
+
 }
 
 fn main() {
@@ -122,14 +132,14 @@ fn main() {
 
     let actor_system = ActorSystem::new();
     ActorSystem::init(actor_system.clone());
-    let actor_ref_1 = actor_system.spawn_actor("actor_1".to_string());
-    let actor_ref_2 = actor_system.spawn_actor("actor_2".to_string());
+    let actor_ref_2 = actor_system.spawn_actor("actor_2".to_string(), Vec::new());
+    let actor_ref_1 = actor_system.spawn_actor("actor_1".to_string(), vec![actor_ref_2.clone()]);
 
     {
         let actor = actor_ref_1.lock().unwrap();
-        actor.send_message(actor_ref_2.clone(), Message::Command(command));
-        actor.send_message(actor_ref_2.clone(), Message::Data(Box::new(message)));
-        actor.send_message(actor_ref_2.clone(), Message::Data(Box::new(3i32)));
+        actor.broadcast(Message::Command(command));
+        actor.broadcast(Message::Data(Box::new(message)));
+        actor.broadcast(Message::Data(Box::new(3i32)));
     }
 
     actor_system.handle_actor_message();
