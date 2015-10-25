@@ -2,7 +2,6 @@ use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, Weak};
 use std::thread;
-use std::thread::JoinHandle;
 
 pub enum Message {
     Data(Box<Any + Send>),
@@ -79,7 +78,9 @@ pub struct ActorSystem {
     // There is currently an issue with having an ActorRef as a Arc<Mutex<Actor + Eq + Hash>>.
     actors_table: Arc<Mutex<Vec<ActorRef>>>,
     actors_queue: Arc<Mutex<VecDeque<ActorRef>>>,
-    consumer_threads: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    // This is currently unused.
+    // This is bad !
+    consumer_threads: Arc<Mutex<Vec<thread::JoinHandle<()>>>>,
     myself: Arc<Mutex<Option<Weak<ActorSystem>>>>,
 }
 
@@ -134,11 +135,21 @@ impl ActorSystem {
     }
 
     pub fn spawn_consumer_thread(&self) {
-        //let handle = thread::spawn(move || {
+        // TODO(gamazeps): use crossbeam crate for scoped thread (guarantees that the spawned
+        // thread do not outlive the ActorSystem).
+        //let guard = thread::scoped(move || {
         //    loop {
         //        self.handle_actor_message();
         //    }
         //});
-        //self.consumer_threads.lock().unwrap().push(handle);
+        //self.consumer_threads.lock().unwrap().push(guard);
+    }
+
+    pub fn spawn_thread(actor_system: Arc<ActorSystem>) -> thread::JoinHandle<()> {
+        thread::spawn(move || {
+            loop {
+                actor_system.handle_actor_message();
+            }
+        })
     }
 }
