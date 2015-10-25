@@ -5,53 +5,49 @@ use std::thread;
 use std::thread::JoinHandle;
 
 pub enum Message {
-    Command(String),
     Data(Box<Any + Send>),
 }
 
 pub type ActorRef = Arc<Mutex<Actor>>;
 
-pub trait Actor {
-    fn receive(&mut self, Arc<Message>);
-    fn handle_message(&mut self);
-    fn send_message(&self, actor_ref: ActorRef, message: Arc<Message>);
-    fn broadcast(&self, message: Arc<Message>);
+pub trait Actor: Send {
+    fn receive(&self, Message);
+    fn handle_message(&self);
+    fn send_message(&self, actor_ref: ActorRef, message: Message);
+    // fn broadcast(&self, message: Box<Any + Send + Clone>);
     // Used on dev, to be removed afterwards.
-    fn send_to_first(&self, message: Arc<Message>);
+    fn send_to_first(&self, message: Message);
 }
 
 pub struct Printer {
-    name: String,
+    name: Arc<String>,
     // Here we use Arc, so that messages can be shared beetween actors.
-    message_queue: VecDeque<Arc<Message>>,
-    actor_system: Weak<ActorSystem>,
-    known_actors: Vec<ActorRef>,
+    message_queue: Arc<Mutex<VecDeque<Message>>>,
+    actor_system: Arc<Weak<ActorSystem>>,
+    known_actors: Arc<Mutex<Vec<ActorRef>>>,
 }
 
 impl Printer {
     fn new(name: String, actor_system: Weak<ActorSystem>, known_actors: Vec<ActorRef>) -> Printer {
         Printer {
-            name: name,
-            message_queue: VecDeque::new(),
-            actor_system: actor_system,
-            known_actors: known_actors,
+            name: Arc::new(name),
+            message_queue: Arc::new(Mutex::new(VecDeque::new())),
+            actor_system: Arc::new(actor_system),
+            known_actors: Arc::new(Mutex::new(known_actors)),
         }
     }
 }
 
 impl Actor for Printer {
-    fn receive(&mut self, message: Arc<Message>) {
-        self.message_queue.push_back(message);
+    fn receive(&self, message: Message) {
+        self.message_queue.lock().unwrap().push_back(message);
     }
 
-    fn handle_message(&mut self) {
-        let message = self.message_queue.pop_front().unwrap().clone();
+    fn handle_message(&self) {
+        let message = self.message_queue.lock().unwrap().pop_front().unwrap();
 
         println!("({}) treats a message", self.name);
-        match *message {
-            Message::Command(ref command) => {
-                println!("Received Command: ({})", command)
-            },
+        match message {
             Message::Data(ref data) => {
                 match data.downcast_ref::<String>() {
                     Some(s) => println!("Received data: ({})", s),
@@ -61,20 +57,21 @@ impl Actor for Printer {
         }
     }
 
-    fn send_message(&self, actor_ref: ActorRef, message: Arc<Message>) {
+    fn send_message(&self, actor_ref: ActorRef, message: Message) {
         self.actor_system.upgrade().unwrap().send_to_actor(actor_ref, message);
     }
 
-    fn send_to_first(&self, message: Arc<Message>) {
-        let actor_ref = self.known_actors[0].clone();
+    fn send_to_first(&self, message: Message) {
+        let actor_ref = self.known_actors.lock().unwrap()[0].clone();
         self.send_message(actor_ref, message);
     }
 
-    fn broadcast(&self, message: Arc<Message>) {
-        for actor_ref in &self.known_actors {
-            self.send_message(actor_ref.clone(), message.clone());
-        }
-    }
+    //fn broadcast(&self, message: Box<Any + Send + Clone>) {
+    //    for actor_ref in &self.known_actors {
+    //        let data = Box::new(message.clone());
+    //        self.send_message(actor_ref.clone(), Message::Data(data));
+    //    }
+    //}
 }
 
 pub struct ActorSystem {
@@ -82,18 +79,19 @@ pub struct ActorSystem {
     // There is currently an issue with having an ActorRef as a Arc<Mutex<Actor + Eq + Hash>>.
     actors_table: Arc<Mutex<Vec<ActorRef>>>,
     actors_queue: Arc<Mutex<VecDeque<ActorRef>>>,
-    consumer_threads: Mutex<Vec<JoinHandle<()>>>,
-    myself: Mutex<Option<Weak<ActorSystem>>>,
+    consumer_threads: Arc<Mutex<Vec<JoinHandle<()>>>>,
+    myself: Arc<Mutex<Option<Weak<ActorSystem>>>>,
 }
 
+unsafe impl Send for ActorSystem {}
 
 impl ActorSystem {
     pub fn new() -> Arc<ActorSystem> {
         let actor_system = Arc::new(ActorSystem {
             actors_table: Arc::new(Mutex::new(Vec::new())),
             actors_queue: Arc::new(Mutex::new(VecDeque::new())),
-            consumer_threads: Mutex::new(Vec::new()),
-            myself: Mutex::new(None),
+            consumer_threads: Arc::new(Mutex::new(Vec::new())),
+            myself: Arc::new(Mutex::new(None)),
         });
         ActorSystem::init(actor_system.clone());
         actor_system
@@ -117,9 +115,9 @@ impl ActorSystem {
         actor_ref
     }
 
-    pub fn send_to_actor(&self, actor_ref: ActorRef, message: Arc<Message>) {
+    pub fn send_to_actor(&self, actor_ref: ActorRef, message: Message) {
         {
-            let mut actor = actor_ref.lock().unwrap();
+            let actor = actor_ref.lock().unwrap();
             actor.receive(message);
         }
         {
@@ -129,19 +127,18 @@ impl ActorSystem {
     }
 
     pub fn handle_actor_message(&self) {
-        let actor_ref;
-        {
-            actor_ref = self.actors_queue.lock().unwrap().pop_front();
-        }
+        let actor_ref = {self.actors_queue.lock().unwrap().pop_front()};
         if let Some(actor) = actor_ref {
             actor.lock().unwrap().handle_message();
         }
     }
 
     pub fn spawn_consumer_thread(&self) {
-        let handle = thread::spawn(|| {
-            println!("Spawned a thread that does nothing");
-        });
-        self.consumer_threads.lock().unwrap().push(handle);
+        //let handle = thread::spawn(move || {
+        //    loop {
+        //        self.handle_actor_message();
+        //    }
+        //});
+        //self.consumer_threads.lock().unwrap().push(handle);
     }
 }

@@ -5,12 +5,12 @@ mod actors;
 
 use std::sync::Arc;
 
+use std::thread;
 use actors::*;
 
 fn main() {
-    let message = Arc::new(actors::Message::Command("This is a command".to_owned()));
-    let command = Arc::new(Message::Data(Box::new("This is a command".to_owned())));
-    let bad_data = Arc::new(Message::Data(Box::new(1i32)));
+    let data = Message::Data(Box::new("This is a command".to_owned()));
+    let bad_data = Message::Data(Box::new(1i32));
 
     let actor_system = ActorSystem::new();
     let actor_ref_2 = actor_system.spawn_actor("actor_2".to_owned(), Vec::new());
@@ -20,14 +20,18 @@ fn main() {
 
     {
         let actor = actor_ref_1.lock().unwrap();
-        actor.broadcast(message.clone());
-        actor.broadcast(command.clone());
-        actor.broadcast(bad_data.clone());
+        //actor.broadcast(message.clone());
+        //actor.broadcast(command.clone());
+        //actor.broadcast(bad_data.clone());
     }
 
     actor_system.spawn_consumer_thread();
 
-    loop {
-        actor_system.handle_actor_message();
-    }
+    let handle = thread::spawn(move || {
+        let actor_system =  actor_system.clone();
+        loop {
+            actor_system.handle_actor_message();
+        }
+    });
+    handle.join();
 }
