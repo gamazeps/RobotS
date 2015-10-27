@@ -3,9 +3,6 @@
 
 mod actors;
 
-use std::sync::Arc;
-
-use std::thread;
 use actors::*;
 
 fn main() {
@@ -22,13 +19,11 @@ fn main() {
         let actor = actor_ref_1.lock().unwrap();
         actor.send_to_first(data);
         actor.send_to_first(bad_data);
-        //actor.broadcast(message.clone());
-        //actor.broadcast(command.clone());
-        //actor.broadcast(bad_data.clone());
+        actor.send_to_first(Message::Command);
     }
 
     actor_system.spawn_consumer_thread();
 
     let handle = ActorSystem::spawn_thread(actor_system.clone());
-    handle.join();
+    let _err = handle.join();
 }
