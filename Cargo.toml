@@ -2,6 +2,7 @@
 name = "actors"
 version = "0.1.0"
 authors = ["Felix Raimundo <gamaz3ps@gmail.com>"]
+documentation = "http://gamazeps.github.io/RobotS/"
 
 [features]
 default = []
