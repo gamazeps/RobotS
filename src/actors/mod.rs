@@ -1,6 +1,7 @@
 use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, Weak};
+use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::thread;
 
 /// Emum used to xrap messages.
@@ -24,9 +25,8 @@ pub trait Actor: Send {
     fn handle_message(&self);
     /// Sends a `Message` to the given `ActorRef`
     fn send_message(&self, actor_ref: ActorRef, message: Message);
-    // fn broadcast(&self, message: Box<Any + Send + Clone>);
-    // Used on dev, to be removed afterwards.
     /// DEV ONLY: Sends a message to the first ActorRef in known_actors.
+    // Used on dev, to be removed afterwards.
     fn send_to_first(&self, message: Message);
 }
 
@@ -34,7 +34,6 @@ pub trait Actor: Send {
 /// any other type of `Data` will have the `Printer` do nothing.
 pub struct Printer {
     name: Arc<String>,
-    // Here we use Arc, so that messages can be shared beetween actors.
     message_queue: Arc<Mutex<VecDeque<Message>>>,
     actor_system: Arc<Weak<ActorSystem>>,
     known_actors: Arc<Mutex<Vec<ActorRef>>>,
@@ -79,14 +78,10 @@ impl Actor for Printer {
         let actor_ref = self.known_actors.lock().unwrap()[0].clone();
         self.send_message(actor_ref, message);
     }
-
-    //fn broadcast(&self, message: Box<Any + Send + Clone>) {
-    //    for actor_ref in &self.known_actors {
-    //        let data = Box::new(message.clone());
-    //        self.send_message(actor_ref.clone(), Message::Data(data));
-    //    }
-    //}
 }
+
+/// Wrapper around the threads handle and termination sender.
+type ConsumerThread = (thread::JoinHandle<()>, Sender<()>);
 
 /// A basic actor system, that handles the creation, distribution and handling of messages.
 /// `Actor`s are simply put in a FIFO when they receive a message, they are poped from it when
@@ -97,9 +92,7 @@ pub struct ActorSystem {
     // There is currently an issue with having an ActorRef as a Arc<Mutex<Actor + Eq + Hash>>.
     actors_table: Arc<Mutex<Vec<ActorRef>>>,
     actors_queue: Arc<Mutex<VecDeque<ActorRef>>>,
-    // This is currently unused.
-    // This is bad !
-    // consumer_threads: Arc<Mutex<Vec<thread::JoinHandle<()>>>>,
+    consumer_threads: Arc<Mutex<Vec<ConsumerThread>>>,
     myself: Arc<Mutex<Option<Weak<ActorSystem>>>>,
 }
 
@@ -111,7 +104,7 @@ impl ActorSystem {
         let actor_system = Arc::new(ActorSystem {
             actors_table: Arc::new(Mutex::new(Vec::new())),
             actors_queue: Arc::new(Mutex::new(VecDeque::new())),
-            // consumer_threads: Arc::new(Mutex::new(Vec::new())),
+            consumer_threads: Arc::new(Mutex::new(Vec::new())),
             myself: Arc::new(Mutex::new(None)),
         });
         ActorSystem::init(actor_system.clone());
@@ -160,25 +153,35 @@ impl ActorSystem {
     }
 
     /// Spawns a thread that will consume messages from the `ActorRef` in `actors_queue`.
-    /// TODO(gamazeps): make it do that...
-    pub fn spawn_consumer_thread(&self) {
-        // TODO(gamazeps): use crossbeam crate for scoped thread (guarantees that the spawned
-        // thread do not outlive the ActorSystem).
-        //let guard = thread::scoped(move || {
-        //    loop {
-        //        self.handle_actor_message();
-        //    }
-        //});
-        //self.consumer_threads.lock().unwrap().push(guard);
+    /// This thread can be terminated by calling `terminate_thread`.
+    pub fn spawn_thread(actor_system: Arc<ActorSystem>) {
+        let (tx, rx) = channel();
+        let thread_actor_system =  actor_system.clone();
+        let handle = thread::spawn(move || {
+            loop {
+                // If we received a () we kill the thread.
+                match rx.try_recv() {
+                    Ok(_) | Err(TryRecvError::Disconnected) => {
+                        println!("Terminating a consumer thread.");
+                        break;
+                    },
+                    Err(TryRecvError::Empty) => {}
+                };
+                // Else we try to prcess a message.
+                thread_actor_system.handle_actor_message();
+            }
+        });
+        actor_system.add_thread(handle, tx);
     }
 
-    /// Spawns a thread that will consume messages from the `ActorRef` in `actors_queue`.
-    /// The thread basically just calls `handle_actor_message`.
-    pub fn spawn_thread(actor_system: Arc<ActorSystem>) -> thread::JoinHandle<()> {
-        thread::spawn(move || {
-            loop {
-                actor_system.handle_actor_message();
-            }
-        })
+    fn add_thread(&self, handle: thread::JoinHandle<()>, sender: Sender<()>) {
+        self.consumer_threads.lock().unwrap().push((handle, sender));
+    }
+
+    /// Kills a consumer thread of the `ActorSystem`.
+    pub fn terminate_thread(&self) {
+        let (handle, tx) = {self.consumer_threads.lock().unwrap().pop().unwrap()};
+        let _res = tx.send(());
+        let _res = handle.join();
     }
 }
