@@ -4,6 +4,8 @@
 
 mod actors;
 
+use std::thread;
+
 use actors::*;
 
 fn main() {
@@ -23,8 +25,15 @@ fn main() {
         actor.send_to_first(Message::Command);
     }
 
-    actor_system.spawn_consumer_thread();
+    ActorSystem::spawn_thread(actor_system.clone());
 
-    let handle = ActorSystem::spawn_thread(actor_system.clone());
-    let _err = handle.join();
+    thread::sleep_ms(3000);
+
+    actor_system.terminate_thread();
+
+    {
+        let actor = actor_ref_1.lock().unwrap();
+        actor.send_to_first(Message::Command);
+    }
+    thread::sleep_ms(3000);
 }
