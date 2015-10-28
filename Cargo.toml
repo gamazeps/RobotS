@@ -1,5 +1,5 @@
 [package]
-name = "actors"
+name = "RobotS"
 version = "0.1.0"
 authors = ["Felix Raimundo <gamaz3ps@gmail.com>"]
 documentation = "http://gamazeps.github.io/RobotS/"
@@ -10,3 +10,11 @@ dev = ["clippy"]
 
 [dependencies]
 clippy = {version = "*", optional = true}
+
+[lib]
+name = "RobotS"
+path = "src/lib.rs"
+
+[[bin]]
+name = "bin"
+path = "src/main.rs"
