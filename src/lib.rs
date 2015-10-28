@@ -1,7 +1,8 @@
 //! Actor system library.
 
-#![feature(plugin)]
-#![plugin(clippy)]
+#![cfg_attr(feature = "dev", allow(unstable_features))]
+#![cfg_attr(feature = "dev", feature(plugin))]
+#![cfg_attr(feature = "dev", plugin(clippy))]
 
 #![warn(missing_docs,
         missing_copy_implementations,

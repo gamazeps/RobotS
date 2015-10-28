@@ -3,8 +3,9 @@ name = "actors"
 version = "0.1.0"
 authors = ["Felix Raimundo <gamaz3ps@gmail.com>"]
 
-[dependencies]
-clippy = "*"
+[features]
+default = []
+dev = ["clippy"]
 
-[dependencies.eventual]
-git = "https://github.com/carllerche/eventual"
+[dependencies]
+clippy = {version = "*", optional = true}

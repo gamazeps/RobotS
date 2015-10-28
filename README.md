@@ -1,5 +1,7 @@
 # RobotS
 
+[![Build Status](https://travis-ci.org/gamazeps/RobotS.svg?branch=travis__test)](https://travis-ci.org/gamazeps/RobotS)
+
 Robots is a pure rust actor system library, it is meant to be a close implementation of [akka](akka.io).
 
 ## Build it
