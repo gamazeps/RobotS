@@ -1,0 +1,105 @@
+use std::collections::VecDeque;
+use std::sync::{Arc, Mutex};
+
+use super::{Message, ActorRef, Actor, ActorSystem};
+
+/// This is a very basic `Actor` which can deal with `String` messages by printing them,
+/// any other type of `Data` will have the `Printer` do nothing.
+pub struct Printer {
+    name: Arc<String>,
+    message_queue: Arc<Mutex<VecDeque<Message>>>,
+    actor_system: Arc<ActorSystem>,
+    known_actors: Arc<Mutex<Vec<ActorRef>>>,
+}
+
+impl Actor for Printer {
+    fn new(name: String, actor_system: Arc<ActorSystem>, known_actors: Vec<ActorRef>) -> ActorRef {
+        Arc::new(Mutex::new(Printer {
+            name: Arc::new(name),
+            message_queue: Arc::new(Mutex::new(VecDeque::new())),
+            actor_system: actor_system,
+            known_actors: Arc::new(Mutex::new(known_actors)),
+        }))
+    }
+
+    fn actor_system(&self) -> Arc<ActorSystem> {
+        self.actor_system.clone()
+    }
+
+    fn receive(&self, message: Message) {
+        self.message_queue.lock().unwrap().push_back(message);
+    }
+
+    fn handle_message(&self) {
+        let message = self.message_queue.lock().unwrap().pop_front().unwrap();
+
+        println!("({}) treats a message", self.name);
+        match message {
+            Message::Data(ref data) => {
+                match data.downcast_ref::<String>() {
+                    Some(s) => println!("Received data: ({})", s),
+                    None => println!("Message is dropped"),
+                }
+            },
+            Message::Command => println!("Receiced a command"),
+        }
+    }
+
+    fn send_to_first(&self, message: Message) {
+        let actor_ref = self.known_actors.lock().unwrap()[0].clone();
+        self.send_message(actor_ref, message);
+    }
+}
+
+/// This is a very basic `Actor` which can deal with `u32` messages by counting up to them,
+/// any other type of `Data` will have the `Counter` do nothing.
+pub struct Counter {
+    name: Arc<String>,
+    message_queue: Arc<Mutex<VecDeque<Message>>>,
+    actor_system: Arc<ActorSystem>,
+    known_actors: Arc<Mutex<Vec<ActorRef>>>,
+}
+
+impl Actor for Counter {
+    fn new(name: String, actor_system: Arc<ActorSystem>, known_actors: Vec<ActorRef>) -> ActorRef {
+        Arc::new(Mutex::new(Counter {
+            name: Arc::new(name),
+            message_queue: Arc::new(Mutex::new(VecDeque::new())),
+            actor_system: actor_system,
+            known_actors: Arc::new(Mutex::new(known_actors)),
+        }))
+    }
+
+    fn actor_system(&self) -> Arc<ActorSystem> {
+        self.actor_system.clone()
+    }
+
+    fn receive(&self, message: Message) {
+        self.message_queue.lock().unwrap().push_back(message);
+    }
+
+    fn handle_message(&self) {
+        let message = self.message_queue.lock().unwrap().pop_front().unwrap();
+
+        println!("({}) treats a message", self.name);
+        match message {
+            Message::Data(ref data) => {
+                match data.downcast_ref::<u32>() {
+                    Some(n) => {
+                        println!("Received data: ({})", n);
+                        for i in 0..*n {
+                            println!("{}", i);
+                        }
+                    },
+                    None => println!("Message is dropped"),
+                }
+            },
+            Message::Command => println!("Receiced a command"),
+        }
+    }
+
+    fn send_to_first(&self, message: Message) {
+        let actor_ref = self.known_actors.lock().unwrap()[0].clone();
+        self.send_message(actor_ref, message);
+    }
+}
