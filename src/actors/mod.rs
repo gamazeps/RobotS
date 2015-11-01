@@ -19,12 +19,16 @@ pub type ActorRef = Arc<Mutex<Actor>>;
 
 /// Trait used for actors, implementing this trait is enough to be an Actor.
 pub trait Actor: Send {
+    /// Gets the `Actor`'s `ActorSystem`.
+    fn actor_system(&self) -> Arc<ActorSystem>;
     /// Method to call on an `Actor` for him to put a message in his message queue.
     fn receive(&self, Message);
     /// Method to call on an `Actor` for him to handle a message from his message queue.
     fn handle_message(&self);
     /// Sends a `Message` to the given `ActorRef`
-    fn send_message(&self, actor_ref: ActorRef, message: Message);
+    fn send_message(&self, actor_ref: ActorRef, message: Message) {
+        self.actor_system().send_to_actor(actor_ref, message);
+    }
     /// DEV ONLY: Sends a message to the first ActorRef in known_actors.
     // Used on dev, to be removed afterwards.
     fn send_to_first(&self, message: Message);
@@ -35,22 +39,26 @@ pub trait Actor: Send {
 pub struct Printer {
     name: Arc<String>,
     message_queue: Arc<Mutex<VecDeque<Message>>>,
-    actor_system: Arc<Weak<ActorSystem>>,
+    actor_system: Arc<ActorSystem>,
     known_actors: Arc<Mutex<Vec<ActorRef>>>,
 }
 
 impl Printer {
-    fn new(name: String, actor_system: Weak<ActorSystem>, known_actors: Vec<ActorRef>) -> Printer {
+    fn new(name: String, actor_system: Arc<ActorSystem>, known_actors: Vec<ActorRef>) -> Printer {
         Printer {
             name: Arc::new(name),
             message_queue: Arc::new(Mutex::new(VecDeque::new())),
-            actor_system: Arc::new(actor_system),
+            actor_system: actor_system,
             known_actors: Arc::new(Mutex::new(known_actors)),
         }
     }
 }
 
 impl Actor for Printer {
+    fn actor_system(&self) -> Arc<ActorSystem> {
+        self.actor_system.clone()
+    }
+
     fn receive(&self, message: Message) {
         self.message_queue.lock().unwrap().push_back(message);
     }
@@ -70,9 +78,6 @@ impl Actor for Printer {
         }
     }
 
-    fn send_message(&self, actor_ref: ActorRef, message: Message) {
-        self.actor_system.upgrade().unwrap().send_to_actor(actor_ref, message);
-    }
 
     fn send_to_first(&self, message: Message) {
         let actor_ref = self.known_actors.lock().unwrap()[0].clone();
@@ -123,7 +128,8 @@ impl ActorSystem {
     /// Creates an `Actor` (currently just a `Printer`), adds it to the `actors_table` and gives an
     /// `ActorRef` to it.
     pub fn spawn_actor(&self, name: String, known_actors: Vec<ActorRef>) -> ActorRef {
-        let actor_ref = Arc::new(Mutex::new(Printer::new(name, self.myself().unwrap(), known_actors)));
+        let actor_ref = Arc::new(Mutex::new(Printer::new(
+                    name, self.myself().unwrap().upgrade().unwrap(), known_actors)));
         {
             let mut actors_table = self.actors_table.lock().unwrap();
             actors_table.push(actor_ref.clone());
