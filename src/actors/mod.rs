@@ -13,6 +13,7 @@ pub mod sample_actors;
 pub enum Message {
     /// Variant used to pass real data around (done by passing a Box to it).
     Data(Box<Any + Send>),
+
     /// Dummy command.
     Command,
 }
@@ -26,16 +27,30 @@ pub trait Actor: Send {
     /// `Actor`s.
     fn new(name: String, actor_system: Arc<ActorSystem>, known_actors: Vec<ActorRef>) -> ActorRef
         where Self: Sized;
+
+    /// Used to fill in the myself of the Actor (need to store a ref to itself).
+    fn init(ActorRef) where Self: Sized;
+
+    /// Gets an ActorRef to the Actor
+    fn actor_ref(&self) -> ActorRef;
+
+    /// Gets an ActorRef to the Actor
+    fn myself(&self) -> Arc<Mutex<Option<Weak<Mutex<Actor>>>>>;
+
     /// Gets the `Actor`'s `ActorSystem`.
     fn actor_system(&self) -> Arc<ActorSystem>;
+
     /// Method to call on an `Actor` for him to put a message in his message queue.
     fn receive(&self, Message);
+
     /// Method to call on an `Actor` for him to handle a message from his message queue.
     fn handle_message(&self);
+
     /// Sends a `Message` to the given `ActorRef`
     fn send_message(&self, actor_ref: ActorRef, message: Message) {
         self.actor_system().send_to_actor(actor_ref, message);
     }
+
     /// DEV ONLY: Sends a message to the first ActorRef in known_actors.
     // Used on dev, to be removed afterwards.
     fn send_to_first(&self, message: Message);
@@ -62,12 +77,14 @@ unsafe impl Send for ActorSystem {}
 impl ActorSystem {
     /// Creates a new `ActorSystem` and gives an `Arc` to it.
     pub fn new() -> Arc<ActorSystem> {
-        let actor_system = Arc::new(ActorSystem {
-            actors_table: Arc::new(Mutex::new(Vec::new())),
-            actors_queue: Arc::new(Mutex::new(VecDeque::new())),
-            consumer_threads: Arc::new(Mutex::new(Vec::new())),
-            myself: Arc::new(Mutex::new(None)),
-        });
+        let actor_system = Arc::new(
+            ActorSystem {
+                actors_table: Arc::new(Mutex::new(Vec::new())),
+                actors_queue: Arc::new(Mutex::new(VecDeque::new())),
+                consumer_threads: Arc::new(Mutex::new(Vec::new())),
+                myself: Arc::new(Mutex::new(None)),
+            }
+        );
         ActorSystem::init(actor_system.clone());
         actor_system
     }
@@ -75,7 +92,6 @@ impl ActorSystem {
     fn init(me: Arc<ActorSystem>) {
         *me.myself.lock().unwrap() = Some(Arc::downgrade(&me));
     }
-
 
     fn myself(&self) -> Option<Weak<ActorSystem>> {
         self.myself.lock().unwrap().clone()
