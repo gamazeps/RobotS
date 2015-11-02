@@ -6,11 +6,10 @@ Robots is a pure rust actor system library, it is meant to be a close implementa
 
 ## Build it
 
-This library currently (2015/10/27) needs to be build with a nightly version of rustc because it
-uses the clippy compiler plugin.
+This library can be built on a stable rustc (starting at 1.4.0) version.
 
-If you remove the compiler plugin, you will still need a beta version of the compiler since it uses
-weak pointers.
+If you want to compile it in dev version (in order to have clippy warnings) you will need a
+nightly version of rustc.
 
 In order to have multiple versions of the rust compiler on your machine you can use
 [multirust](https://github.com/brson/multirust).

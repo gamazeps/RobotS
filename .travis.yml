@@ -1,6 +1,7 @@
 sudo: false
 language: rust
 rust:
+- stable
 - nightly
 - beta
 matrix:
