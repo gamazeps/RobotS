@@ -13,8 +13,6 @@ pub struct Printer {
     myself: Arc<Mutex<Option<Weak<Mutex<Actor>>>>>,
 }
 
-unsafe impl Send for Printer {}
-
 impl Actor for Printer {
     fn new(name: String, actor_system: Arc<ActorSystem>, known_actors: Vec<ActorRef>) -> ActorRef {
         let actor_ref = Arc::new(Mutex::new(Printer {
@@ -24,7 +22,7 @@ impl Actor for Printer {
             known_actors: Arc::new(Mutex::new(known_actors)),
             myself: Arc::new(Mutex::new(None)),
         }));
-        //Actor::init(actor_ref.clone());
+        Printer::init(actor_ref.clone());
         actor_ref
     }
 
@@ -88,7 +86,7 @@ impl Actor for Counter {
             known_actors: Arc::new(Mutex::new(known_actors)),
             myself: Arc::new(Mutex::new(None)),
         }));
-        //Actor::init(actor_ref.clone());
+        Counter::init(actor_ref.clone());
         actor_ref
     }
 
