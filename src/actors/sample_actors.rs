@@ -33,12 +33,15 @@ impl Actor for Printer {
         *y = Some(Arc::downgrade(&me));
     }
 
-    //fn actor_ref(&self) -> ActorRef {
-    //    let x = self.myself();
-    //    let y = x.lock().unwrap(); // Get the Option<Weak> out of the Mutex.
-    //    let z = y.unwrap().clone(); // Get the Weak out of the Option.
-    //    z.upgrade().unwrap()
-    //}
+    fn actor_ref(&self) -> ActorRef {
+        let x = self.myself();
+        let y = x.lock().unwrap(); // Get the Option<Weak> out of the Mutex.
+        let z = match *y {
+            Some(ref w) => w,
+            None => panic!(""),
+        }; // Get the Weak out of the Option.
+        z.upgrade().unwrap()
+    }
 
     fn myself(&self) -> Arc<Mutex<Option<Weak<Mutex<Actor>>>>> {
         self.myself.clone()
@@ -97,12 +100,15 @@ impl Actor for Counter {
         *y = Some(Arc::downgrade(&me));
     }
 
-    //fn actor_ref(&self) -> ActorRef {
-    //    let x = self.myself();
-    //    let y = x.lock().unwrap(); // Get the Option<Weak> out of the Mutex.
-    //    let z = y.unwrap(); // Get the Weak out of the Option.
-    //    z.upgrade().unwrap()
-    //}
+    fn actor_ref(&self) -> ActorRef {
+        let x = self.myself();
+        let y = x.lock().unwrap(); // Get the Option<Weak> out of the Mutex.
+        let z = match *y {
+            Some(ref w) => w,
+            None => panic!(""),
+        }; // Get the Weak out of the Option.
+        z.upgrade().unwrap()
+    }
 
     fn myself(&self) -> Arc<Mutex<Option<Weak<Mutex<Actor>>>>> {
         self.myself.clone()
