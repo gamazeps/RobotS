@@ -29,15 +29,18 @@ impl Actor for Printer {
     }
 
     fn init(me: ActorRef) {
-        let myself = me.lock().unwrap().myself().lock().unwrap();
-        *myself = Some(Arc::downgrade(&me));
+        // There are 2 temp values to satisfy the borrow checker.
+        let x = me.lock().unwrap().myself();
+        let mut y = x.lock().unwrap();
+        *y = Some(Arc::downgrade(&me));
     }
 
-    fn actor_ref(&self) -> ActorRef {
-        Weak::upgrade(&(self.myself.lock().unwrap() // Get the Option<Weak> out of the Mutex.
-                        .unwrap()) // Get the Weak out of the Option.
-                     ).unwrap()
-    }
+    //fn actor_ref(&self) -> ActorRef {
+    //    let x = self.myself();
+    //    let y = x.lock().unwrap(); // Get the Option<Weak> out of the Mutex.
+    //    let z = y.unwrap().clone(); // Get the Weak out of the Option.
+    //    z.upgrade().unwrap()
+    //}
 
     fn myself(&self) -> Arc<Mutex<Option<Weak<Mutex<Actor>>>>> {
         self.myself.clone()
@@ -90,14 +93,18 @@ impl Actor for Counter {
     }
 
     fn init(me: ActorRef) {
-        *me.lock().unwrap().myself().lock().unwrap() = Some(Arc::downgrade(&me));
+        // There are 2 temp values to satisfy the borrow checker.
+        let x = me.lock().unwrap().myself();
+        let mut y = x.lock().unwrap();
+        *y = Some(Arc::downgrade(&me));
     }
 
-    fn actor_ref(&self) -> ActorRef {
-        Weak::upgrade(&(self.myself().lock().unwrap() // Get the Option<Weak> out of the Mutex.
-                        .unwrap()) // Get the Weak out of the Option.
-                     ).unwrap()
-    }
+    //fn actor_ref(&self) -> ActorRef {
+    //    let x = self.myself();
+    //    let y = x.lock().unwrap(); // Get the Option<Weak> out of the Mutex.
+    //    let z = y.unwrap(); // Get the Weak out of the Option.
+    //    z.upgrade().unwrap()
+    //}
 
     fn myself(&self) -> Arc<Mutex<Option<Weak<Mutex<Actor>>>>> {
         self.myself.clone()

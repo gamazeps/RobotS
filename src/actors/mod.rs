@@ -32,7 +32,7 @@ pub trait Actor: Send {
     fn init(ActorRef) where Self: Sized;
 
     /// Gets an ActorRef to the Actor
-    fn actor_ref(&self) -> ActorRef;
+    //fn actor_ref(&self) -> ActorRef;
 
     /// Gets an ActorRef to the Actor
     fn myself(&self) -> Arc<Mutex<Option<Weak<Mutex<Actor>>>>>;
