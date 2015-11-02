@@ -4,11 +4,6 @@ version = "0.1.0"
 authors = ["Felix Raimundo <gamaz3ps@gmail.com>"]
 documentation = "http://gamazeps.github.io/RobotS/"
 
-[[bin]]
-doc = false
-name = "main"
-# path = "src/main.rs"
-
 [features]
 default = []
 dev = ["clippy"]
@@ -17,9 +12,10 @@ dev = ["clippy"]
 clippy = {version = "*", optional = true}
 
 [lib]
-name = "RobotS"
+name = "robots"
 path = "src/lib.rs"
 
 [[bin]]
-name = "bin"
+doc = false
+name = "main"
 path = "src/main.rs"
