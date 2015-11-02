@@ -4,6 +4,8 @@
 
 Robots is a pure rust actor system library, it is meant to be a close implementation of [akka](akka.io).
 
+Documentation can be found [here](http://gamazeps.github.io/RobotS/).
+
 ## Build it
 
 This library can be built on a stable rustc (starting at 1.4.0) version.
