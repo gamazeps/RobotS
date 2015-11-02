@@ -7,15 +7,36 @@ use std::thread;
 /// Module containing sample`Actor`s.
 pub mod sample_actors;
 
-/// Emum used to xrap messages.
-///   * If the message is normal data it is in a Data variant.
-///   * If the message is a Command it has its own variant.
-pub enum Message {
+/// Emum used to wrap payloads.
+///   * If the payload is normal data it is in a Data variant.
+///   * If the payload is a special payload it has its own variant.
+pub enum Payload {
     /// Variant used to pass real data around (done by passing a Box to it).
     Data(Box<Any + Send>),
 
+    /// Ack command.
+    Ack,
+
     /// Dummy command.
     Command,
+}
+
+/// Struct used to send a `Payload` with its sender information.
+pub struct Message {
+    /// Contains the message payload.
+    payload: Payload,
+
+    /// Allows to have messages without senders (main for exemple).
+    sender: Option<ActorRef>,
+}
+
+impl Message {
+    fn new(payload: Payload, sender: Option<ActorRef>) -> Message {
+        Message {
+            payload: payload,
+            sender: sender,
+        }
+    }
 }
 
 /// Utility type to wrap `Actor`s in a thread safe manner.
@@ -31,10 +52,10 @@ pub trait Actor: Send {
     /// Used to fill in the myself of the Actor (need to store a ref to itself).
     fn init(ActorRef) where Self: Sized;
 
-    /// Gets an ActorRef to the Actor
+    /// Gets an ActorRef to the Actor.
     fn actor_ref(&self) -> ActorRef;
 
-    /// Gets an ActorRef to the Actor
+    /// Gets the myself field, this is needed because we use trait objects.
     fn myself(&self) -> Arc<Mutex<Option<Weak<Mutex<Actor>>>>>;
 
     /// Gets the `Actor`'s `ActorSystem`.
@@ -46,14 +67,15 @@ pub trait Actor: Send {
     /// Method to call on an `Actor` for him to handle a message from his message queue.
     fn handle_message(&self);
 
-    /// Sends a `Message` to the given `ActorRef`
-    fn send_message(&self, actor_ref: ActorRef, message: Message) {
-        self.actor_system().send_to_actor(actor_ref, message);
+    /// Sends a `Message` to the given `ActorRef`.
+    /// It puts the actor as the `sender` field and puts `payload` in the `payload` field.
+    fn send_message(&self, actor_ref: ActorRef, payload: Payload) {
+        self.actor_system().send_to_actor(actor_ref, Message::new(payload, Some(self.actor_ref())));
     }
 
     /// DEV ONLY: Sends a message to the first ActorRef in known_actors.
     // Used on dev, to be removed afterwards.
-    fn send_to_first(&self, message: Message);
+    fn send_to_first(&self, payload: Payload);
 }
 
 /// Wrapper around the threads handle and termination sender.

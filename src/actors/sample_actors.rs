@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, Weak};
 
-use super::{Message, ActorRef, Actor, ActorSystem};
+use super::{Message, Payload, ActorRef, Actor, ActorSystem};
 
 /// This is a very basic `Actor` which can deal with `String` messages by printing them,
 /// any other type of `Data` will have the `Printer` do nothing.
@@ -51,22 +51,28 @@ impl Actor for Printer {
         let message = self.message_queue.lock().unwrap().pop_front().unwrap();
 
         println!("({}) treats a message", self.name);
-        match message {
-            Message::Data(ref data) => {
+        match message.payload {
+            Payload::Data(ref data) => {
                 match data.downcast_ref::<String>() {
-                    Some(s) => println!("Received data: ({})", s),
+                    Some(s) => {
+                        println!("Received data: ({})", s);
+                        if message.sender.is_some() {
+                            self.send_message(message.sender.unwrap(), Payload::Ack);
+                        }
+                    },
                     None => println!("Message is dropped"),
                 }
             },
-            Message::Command => println!("Receiced a command"),
+            Payload::Command => println!("Receiced a command"),
+            Payload::Ack => println!("Receiced an Ack"),
         }
     }
 
     fn actor_system(&self) -> Arc<ActorSystem> { self.actor_system.clone() }
     fn receive(&self, message: Message) { self.message_queue.lock().unwrap().push_back(message); }
-    fn send_to_first(&self, message: Message) {
+    fn send_to_first(&self, payload: Payload) {
         let actor_ref = self.known_actors.lock().unwrap()[0].clone();
-        self.send_message(actor_ref, message);
+        self.send_message(actor_ref, payload);
     }
 }
 
@@ -118,26 +124,30 @@ impl Actor for Counter {
         let message = self.message_queue.lock().unwrap().pop_front().unwrap();
 
         println!("({}) treats a message", self.name);
-        match message {
-            Message::Data(ref data) => {
+        match message.payload {
+            Payload::Data(ref data) => {
                 match data.downcast_ref::<u32>() {
                     Some(n) => {
                         println!("Received data: ({})", n);
                         for i in 0..*n {
                             println!("{}", i);
                         }
+                        if message.sender.is_some() {
+                            self.send_message(message.sender.unwrap(), Payload::Ack);
+                        }
                     },
                     None => println!("Message is dropped"),
                 }
             },
-            Message::Command => println!("Receiced a command"),
+            Payload::Command => println!("Receiced a command"),
+            Payload::Ack => println!("Receiced an Ack"),
         }
     }
 
     fn actor_system(&self) -> Arc<ActorSystem> { self.actor_system.clone() }
     fn receive(&self, message: Message) { self.message_queue.lock().unwrap().push_back(message); }
-    fn send_to_first(&self, message: Message) {
+    fn send_to_first(&self, payload: Payload) {
         let actor_ref = self.known_actors.lock().unwrap()[0].clone();
-        self.send_message(actor_ref, message);
+        self.send_message(actor_ref, payload);
     }
 }
