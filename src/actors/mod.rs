@@ -43,6 +43,7 @@ impl Message {
 pub type ActorRef = Arc<Mutex<Actor>>;
 
 /// Trait used for actors, implementing this trait is enough to be an Actor.
+// TODO(gamazeps): It only has to be Sync as only referneces to actors are passed around threads.
 pub trait Actor: Send {
     /// Method for spawning an `Actor`, this is needed here for genericity in the creation of
     /// `Actor`s.

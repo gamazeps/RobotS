@@ -132,8 +132,8 @@ impl Actor for Counter {
                         for i in 0..*n {
                             println!("{}", i);
                         }
-                        if message.sender.is_some() {
-                            self.send_message(message.sender.unwrap(), Payload::Ack);
+                        for sender in message.sender.into_iter() {
+                            self.send_message(sender, Payload::Ack);
                         }
                     },
                     None => println!("Message is dropped"),
