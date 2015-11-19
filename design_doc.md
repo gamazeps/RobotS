@@ -278,3 +278,8 @@ This will be done exactly as in akka.
 
 This will be done exactly as in akka with the same preStart, postStop, preRestart and postRestart
 methods.
+
+# Further work
+
+Implement features similar to those that can be found in akka typed, by using the canReveive trait
+in a smarter way.
