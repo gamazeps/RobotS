@@ -52,7 +52,7 @@ struct MyActor {
 }
 
 impl Actor for MyActor {
-    fn receive(message: Message, context: &ActorContext) -> () {
+    fn receive(&self, message: Message, context: &ActorContext) -> () {
         match message.content() {
             case "hello".to_owned() => println!("Oh, hello there"),
             case _ => println!("Haven't your parents told you to greet people ?")
@@ -98,7 +98,8 @@ struct ActorCell<T: Actor> {
     mailbox: Mailbox,
     props: Props<T>,
     actor_system: ActorSystem,
-    parent: ActorRef<Stuff>,
+    parent: ActorRef<Any>,
+    children: Vec<ActorRef<Any>>,
     context: ActorContext,
     actor: T
 }
@@ -190,7 +191,7 @@ Or the following inside the receive function:
 
 ```rust
 impl Actor for MyActor {
-    fn receive(message: Message, context: &ActorContext) {
+    fn receive(&self, message: Message, context: &ActorContext) {
         match message {
             _ => context.tell(context.sender(), "Hello friend")
         }
@@ -224,16 +225,17 @@ This will be done by having future implement a CanReceive trait (also implemente
 that we can do the following on a future:
 
 ```rust
-struct dummy: Actor {}
+struct Dummy: Actor {}
 
-impl Actor for dummy {
-    fn receive(message: Message, context: &ActorContext) {
+impl Actor for Dummy {
+    fn receive(&self, message: Message, context: &ActorContext) {
         match message {
             _ => context.tell()(context.sender(), "I received your message")
         }
     }
 }
 
+let dummy = actor_system.actor_of(Props::Dummy::new(), "dummy");
 let future = askTo(dummy, "Message");
 ```
 
