@@ -11,16 +11,14 @@
 //        unused_import_braces,
 //        unused_qualifications)]
 
-use std::any::Any;
-use std::collections::VecDeque;
-use std::sync::{Arc, Mutex, Weak};
-use std::sync::mpsc::{channel, Sender, TryRecvError};
-use std::thread;
-
 pub use self::actors::{Actor, Message};
 pub use self::actor_ref::ActorRef;
+pub use self::actor_system::ActorSystem;
+pub use self::props::Props;
 use self::actor_cell::ActorCell;
 
 pub mod actors;
 pub mod actor_ref;
+pub mod actor_system;
+pub mod props;
 mod actor_cell;

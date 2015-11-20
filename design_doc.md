@@ -23,16 +23,16 @@ We will use the system of `Props` used in akka to have immutable and thread safe
 `Actors`, having these is valuable as it allows to recreate / restart actors if they fail.
 
 ```rust
-struct Props<T: Actor> {
+struct Props<A: Actor> {
     /// Here will go the fields when options are given for actors creations.
     // This is needed to have genericity over any T if we do not hold any T.
-    _phantom: PhantomData<T>
+    _phantom: PhantomData<A>
     // TODO(raimundo) a sequence of Any.
 }
 
 impl Props<T> {}
 
-actor_ref = actor_system.actor_of(Props::MyActor::new(), "my_actor");
+actor_ref = actor_system.actor_of(Props::<MyActor>::new(), "my_actor");
 ```
 
 An instance of the actor is then created using either actor_system.actor_of(props, name) or
@@ -100,7 +100,6 @@ struct ActorCell<T: Actor> {
     actor_system: ActorSystem,
     parent: ActorRef<Any>,
     children: Vec<ActorRef<Any>>,
-    context: ActorContext,
     actor: T
 }
 ```

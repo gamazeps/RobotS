@@ -3,8 +3,14 @@ use actor_cell::ActorCell;
 
 pub struct ActorRef<A: Actor> {
     actor_cell: ActorCell<A>,
-    path: ActorPath,
-    is_local: bool,
+}
+
+impl<A: Actor> ActorRef<A> {
+    pub fn with_cell(cell: ActorCell<A>) -> ActorRef<A> {
+        ActorRef {
+            actor_cell: cell,
+        }
+    }
 }
 
 /// Trait used to signal that a struct can send messages.
