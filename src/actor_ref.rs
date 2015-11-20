@@ -1,12 +1,12 @@
 use {Actor, Message};
 use actor_cell::ActorCell;
 
-pub struct ActorRef<A: Actor> {
-    actor_cell: ActorCell<A>,
+pub struct ActorRef<Args: Copy, A: Actor> {
+    actor_cell: ActorCell<Args, A>,
 }
 
-impl<A: Actor> ActorRef<A> {
-    pub fn with_cell(cell: ActorCell<A>) -> ActorRef<A> {
+impl<Args: Copy, A: Actor> ActorRef<Args, A> {
+    pub fn with_cell(cell: ActorCell<Args, A>) -> ActorRef<Args, A> {
         ActorRef {
             actor_cell: cell,
         }
@@ -24,11 +24,11 @@ trait CanReceive {
 }
 
 
-impl<A: Actor> CanSend for ActorRef<A> {
+impl<Args: Copy, A: Actor> CanSend for ActorRef<Args, A> {
     fn send(&self, message: Message) {}
 }
 
-impl<A: Actor> CanReceive for ActorRef<A> {}
+impl<Args: Copy, A: Actor> CanReceive for ActorRef<Args, A> {}
 
 struct ActorPath {
     path: String,

@@ -2,13 +2,13 @@ use std::marker::PhantomData;
 
 use {Actor};
 
-pub struct Props<Args, A: Actor> {
+pub struct Props<Args: Copy, A: Actor> {
     _phantom: PhantomData<A>,
     creator: &'static Fn(Args) -> A,
     args: Args,
 }
 
-impl<Args, A: Actor> Props<Args, A> {
+impl<Args: Copy, A: Actor> Props<Args, A> {
     fn new(creator: &'static Fn(Args) -> A, args: Args) -> Props<Args, A> {
         Props::<Args, A> {
             _phantom: PhantomData,
@@ -17,7 +17,9 @@ impl<Args, A: Actor> Props<Args, A> {
         }
     }
 
-    fn create(&self) -> A {
-        self.creator(self.args)
+    pub fn create(&self) -> A {
+        // TODO(gamazeps): reopen https://github.com/rust-lang/rust/issues/18343 with an example.
+        let args = self.args;
+        (self.creator)(args)
     }
 }
