@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-use {Actor, ActorRef, Message, Props};
+use {Actor, ActorRef, ActorSystem, CanReceive, Message, Props};
 
 pub struct ActorCell<Args: Copy, A: Actor> {
     // We have an inner structure in order to be able to generate new ActorCell easily.
@@ -17,10 +17,18 @@ impl<Args:  Copy, A: Actor> Clone for ActorCell<Args, A> {
 }
 
 impl<Args: Copy, A: Actor> ActorCell<Args, A> {
-    pub fn new(actor: A, props: Props<Args, A>) -> ActorCell<Args, A> {
+    pub fn new(actor: A, props: Props<Args, A>, system: ActorSystem) -> ActorCell<Args, A> {
         ActorCell {
-            inner_cell: Arc::new(InnerActorCell::new(actor, props)),
+            inner_cell: Arc::new(InnerActorCell::new(actor, props, system)),
         }
+    }
+
+    pub fn receive_message(&self, message: Message) {
+        self.inner_cell.receive_message(message);
+    }
+
+    pub fn handle_envelope(&self) {
+        self.inner_cell.handle_envelope();
     }
 }
 
@@ -28,6 +36,7 @@ impl<Args: Copy, A: Actor> ActorCell<Args, A> {
 trait ActorContext<Args: Copy, A: Actor> {
     fn actor_ref(&self) -> ActorRef<Args, A>;
     fn actor_of(&self, props: Props<Args, A>) -> ActorRef<Args, A>;
+    fn tell<T: CanReceive>(&self, to: T, message: Message);
 }
 
 impl<Args: Copy, A: Actor> ActorContext<Args, A> for ActorCell<Args, A> {
@@ -38,24 +47,54 @@ impl<Args: Copy, A: Actor> ActorContext<Args, A> for ActorCell<Args, A> {
     fn actor_of(&self, props: Props<Args, A>) -> ActorRef<Args, A> {
         let actor = props.create();
         let actor_cell  = ActorCell {
-            inner_cell: Arc::new(InnerActorCell::new(actor, props)),
+            inner_cell: Arc::new(InnerActorCell::new(actor, props, self.inner_cell.system.clone())),
         };
         ActorRef::with_cell(actor_cell)
+    }
+
+    fn tell<T: CanReceive>(&self, to: T, message: Message) {
+        to.receive(message);
     }
 }
 
 struct InnerActorCell<Args: Copy, A: Actor> {
     actor: A,
-    mailbox: VecDeque<Message>,
+    mailbox: Mutex<VecDeque<Envelope>>,
     props: Props<Args, A>,
+    system: ActorSystem,
+}
+
+struct Envelope {
+    message: Message,
 }
 
 impl<Args: Copy, A: Actor> InnerActorCell<Args, A> {
-    fn new(actor: A, props: Props<Args, A>) -> InnerActorCell<Args, A> {
+    fn new(actor: A, props: Props<Args, A>, system: ActorSystem) -> InnerActorCell<Args, A> {
         InnerActorCell {
             actor: actor,
-            mailbox: VecDeque::new(),
+            mailbox: Mutex::new(VecDeque::new()),
             props: props,
+            system: system,
         }
     }
+
+    fn receive_envelope(&self, envelope: Envelope) {
+        self.mailbox.lock().unwrap().push_back(envelope);
+    }
+
+    fn receive_message(&self, message: Message) {
+        self.receive_envelope(Envelope{message: message});
+    }
+
+    fn handle_envelope(&self) {
+        let envelope = match self.mailbox.lock().unwrap().pop_front() {
+            Some(envelope) => envelope,
+            None => {
+                println!("no envelope in mailbox");
+                return;
+            }
+        };
+        self.actor.receive(envelope.message);
+    }
+
 }

@@ -23,16 +23,33 @@ We will use the system of `Props` used in akka to have immutable and thread safe
 `Actors`, having these is valuable as it allows to recreate / restart actors if they fail.
 
 ```rust
-struct Props<A: Actor> {
+struct MyActor {
+    x: i32
+}
+
+impl Actor for MyActor {
+    ...
+}
+
+impl MyActor {
+    fn new(x: i32) -> MyActor {
+        MyActor {
+            x: x
+        }
+    }
+}
+
+struct Props<Args: Copy, A: Actor> {
     /// Here will go the fields when options are given for actors creations.
     // This is needed to have genericity over any T if we do not hold any T.
     _phantom: PhantomData<A>
-    // TODO(raimundo) a sequence of Any.
+    creator: Box<Fn(Args) -> A>,
+    args: Args,
 }
 
 impl Props<T> {}
 
-actor_ref = actor_system.actor_of(Props::<MyActor>::new(), "my_actor");
+actor_ref = actor_system.actor_of(Props::new(Box::new(MyActor::new), 3), "my_actor");
 ```
 
 An instance of the actor is then created using either actor_system.actor_of(props, name) or
@@ -94,13 +111,13 @@ This is what is used to contain the logic of an actor, i.e its actor system, pro
 information and children and parent ActorRef.
 
 ```rust
-struct ActorCell<T: Actor> {
+struct ActorCell<Args: Copy, A: Actor> {
     mailbox: Mailbox,
-    props: Props<T>,
+    props: Props<Args, A>,
     actor_system: ActorSystem,
-    parent: ActorRef<Any>,
-    children: Vec<ActorRef<Any>>,
-    actor: T
+    parent: ActorRef<Actor>,
+    children: Vec<ActorRef<Actor>>,
+    actor: A
 }
 ```
 
@@ -173,8 +190,8 @@ once.
 The pattern is the following:
 
 ```rust
-let actor_1 = actors_system.actor_of(Props::Myactor::new(), "1");
-let actor_2 = actors_system.actor_of(Props::Myactor::new(), "2");
+let actor_1 = actors_system.actor_of(Props::new(Box::new(MyActor::new), 1), "1");
+let actor_2 = actors_system.actor_of(Props::new(Box::new(MyActor::new), 2), "2");
 
 actor_1.tell(actor_2, "Hello");
 ```
@@ -182,7 +199,7 @@ actor_1.tell(actor_2, "Hello");
 We can also have:
 
 ```rust
-let actor = actors_system.actor_of(Props::Myactor::new(), "1");
+let actor = actors_system.actor_of(Props::new(Box::nex(Myactor::new()), 1), "1");
 tellTo(actor, "Hi");
 ```
 
@@ -234,7 +251,13 @@ impl Actor for Dummy {
     }
 }
 
-let dummy = actor_system.actor_of(Props::Dummy::new(), "dummy");
+impl Dummy {
+    fn new(_dummy: ()) -> Dummy {
+        Dummy
+    }
+}
+
+let dummy = actor_system.actor_of(Props::new(Box::new(Dummy::new), ()), "dummy");
 let future = askTo(dummy, "Message");
 ```
 

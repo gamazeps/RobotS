@@ -1,5 +1,6 @@
 pub enum Message {
     Dummy,
+    Text(String),
 }
 
 pub trait Actor: Sync {
