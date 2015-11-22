@@ -4,12 +4,12 @@ use {Actor};
 
 pub struct Props<Args: Copy, A: Actor> {
     _phantom: PhantomData<A>,
-    creator: &'static Fn(Args) -> A,
+    creator: Box<Fn(Args) -> A>,
     args: Args,
 }
 
 impl<Args: Copy, A: Actor> Props<Args, A> {
-    fn new(creator: &'static Fn(Args) -> A, args: Args) -> Props<Args, A> {
+    pub fn new(creator: Box<Fn(Args) -> A>, args: Args) -> Props<Args, A> {
         Props::<Args, A> {
             _phantom: PhantomData,
             creator: creator,

@@ -29,7 +29,3 @@ impl<Args: Copy, A: Actor> CanSend for ActorRef<Args, A> {
 }
 
 impl<Args: Copy, A: Actor> CanReceive for ActorRef<Args, A> {}
-
-struct ActorPath {
-    path: String,
-}

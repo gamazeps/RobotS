@@ -1,5 +1,3 @@
-use std::any::Any;
-
 pub enum Message {
     Dummy,
 }
@@ -7,16 +5,16 @@ pub enum Message {
 pub trait Actor: Sync {
     fn receive(&self, message: Message);
 
-    fn preStart(&self) {}
+    fn pre_start(&self) {}
 
-    fn postStop(&self) {}
+    fn post_stop(&self) {}
 
-    fn preRestart(&self) {
-        self.postStop()
+    fn pre_restart(&self) {
+        self.post_stop()
     }
 
-    fn postRestart(&self) {
-        self.preStart()
+    fn post_restart(&self) {
+        self.pre_start()
     }
 }
 
