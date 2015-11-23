@@ -4,6 +4,8 @@
 
 extern crate robots;
 
+use std::sync::Arc;
+
 use robots::{Actor, ActorSystem, CanReceive, Message, Props};
 
 struct MyActor;
@@ -26,12 +28,12 @@ impl MyActor {
 fn main() {
 
     let actor_system = ActorSystem::new("test".to_owned());
-    actor_system.spawn_threads(5);
+    actor_system.spawn_threads(1);
 
-    let props_1 = Props::new(Box::new(MyActor::new), ());
+    let props_1 = Props::new(Arc::new(MyActor::new), ());
     let actor_ref_1 = actor_system.actor_of(props_1);
 
-    let props_2 = Props::new(Box::new(MyActor::new), ());
+    let props_2 = Props::new(Arc::new(MyActor::new), ());
     let actor_ref_2 = actor_system.actor_of(props_2);
 
     actor_ref_1.receive(Message::Dummy);
@@ -40,7 +42,7 @@ fn main() {
     actor_ref_1.handle();
 
     std::thread::sleep_ms(700);
-    actor_system.terminate_threads(5);
+    actor_system.terminate_threads(1);
     std::thread::sleep_ms(700);
 
     println!("Hello world!");

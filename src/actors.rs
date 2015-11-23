@@ -3,7 +3,7 @@ pub enum Message {
     Text(String),
 }
 
-pub trait Actor: Sync {
+pub trait Actor: Send + Sync{
     fn receive(&self, message: Message);
 
     fn pre_start(&self) {}

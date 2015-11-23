@@ -1,8 +1,9 @@
+use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::thread;
 
-use {Actor, ActorRef, Props};
+use {Actor, ActorRef, CanReceive, Props};
 use actor_cell::ActorCell;
 
 /// Wrapper around the threads handle and termination sender.
@@ -12,7 +13,8 @@ pub struct ActorSystem {
     name: Arc<String>,
     // For now we will have the worker pool in the system.
     // TODO(find a way to have a clean way to separate system and user threads).
-    consumer_threads: Arc<Mutex<Vec<ConsumerThread>>>
+    consumer_threads: Arc<Mutex<Vec<ConsumerThread>>>,
+    actors_queue: Arc<Mutex<VecDeque<Arc<CanReceive + Sync>>>>,
 }
 
 impl ActorSystem {
@@ -20,10 +22,11 @@ impl ActorSystem {
         ActorSystem {
             name: Arc::new(name),
             consumer_threads: Arc::new(Mutex::new(Vec::new())),
+            actors_queue: Arc::new(Mutex::new(VecDeque::new())),
         }
     }
 
-    pub fn actor_of<Args: Copy, A: Actor>(&self, props: Props<Args, A>) -> ActorRef<Args, A> {
+    pub fn actor_of<Args: Copy + Sync + Send, A: Actor>(&self, props: Props<Args, A>) -> ActorRef<Args, A> {
         let actor = props.create();
         let actor_cell = ActorCell::new(actor, props, self.clone());
         ActorRef::with_cell(actor_cell)
@@ -33,6 +36,7 @@ impl ActorSystem {
     /// This thread can be terminated by calling `terminate_thread`.
     pub fn spawn_thread(&self) {
         let (tx, rx) = channel();
+        let thread_system = self.clone();
         let handle = thread::spawn(move || {
             loop {
                 // If we received a () we kill the thread.
@@ -44,8 +48,14 @@ impl ActorSystem {
                     Err(TryRecvError::Empty) => {}
                 };
                 // Else we try to prcess a message.
-                println!("Fake consume message !");
-                thread::sleep_ms(700);
+                let actor_ref = {thread_system.actors_queue.lock().unwrap().pop_front()};
+                match actor_ref {
+                    Some(actor) => actor.handle(),
+                    None => {
+                        println!("No waiting actor");
+                        thread::sleep_ms(500);
+                    }
+                }
             }
         });
         self.add_thread(handle, tx);
@@ -86,6 +96,7 @@ impl Clone for ActorSystem {
         ActorSystem {
             name: self.name.clone(),
             consumer_threads: self.consumer_threads.clone(),
+            actors_queue: self.actors_queue.clone(),
         }
     }
 }

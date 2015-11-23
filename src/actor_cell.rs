@@ -3,12 +3,12 @@ use std::sync::{Arc, Mutex};
 
 use {Actor, ActorRef, ActorSystem, CanReceive, Message, Props};
 
-pub struct ActorCell<Args: Copy, A: Actor> {
+pub struct ActorCell<Args: Copy + Sync + Send, A: Actor> {
     // We have an inner structure in order to be able to generate new ActorCell easily.
     inner_cell: Arc<InnerActorCell<Args, A>>,
 }
 
-impl<Args:  Copy, A: Actor> Clone for ActorCell<Args, A> {
+impl<Args:  Copy + Sync + Send, A: Actor> Clone for ActorCell<Args, A> {
     fn clone(&self) -> ActorCell<Args, A> {
         ActorCell {
             inner_cell: self.inner_cell.clone()
@@ -16,7 +16,7 @@ impl<Args:  Copy, A: Actor> Clone for ActorCell<Args, A> {
     }
 }
 
-impl<Args: Copy, A: Actor> ActorCell<Args, A> {
+impl<Args: Copy + Sync + Send, A: Actor> ActorCell<Args, A> {
     pub fn new(actor: A, props: Props<Args, A>, system: ActorSystem) -> ActorCell<Args, A> {
         ActorCell {
             inner_cell: Arc::new(InnerActorCell::new(actor, props, system)),
@@ -33,13 +33,13 @@ impl<Args: Copy, A: Actor> ActorCell<Args, A> {
 }
 
 /// This is the API that actors are supposed to see.
-trait ActorContext<Args: Copy, A: Actor> {
+trait ActorContext<Args: Copy + Sync + Send, A: Actor> {
     fn actor_ref(&self) -> ActorRef<Args, A>;
     fn actor_of(&self, props: Props<Args, A>) -> ActorRef<Args, A>;
     fn tell<T: CanReceive>(&self, to: T, message: Message);
 }
 
-impl<Args: Copy, A: Actor> ActorContext<Args, A> for ActorCell<Args, A> {
+impl<Args: Copy + Sync + Send, A: Actor> ActorContext<Args, A> for ActorCell<Args, A> {
     fn actor_ref(&self) -> ActorRef<Args, A> {
         ActorRef::with_cell(self.clone())
     }
@@ -57,7 +57,7 @@ impl<Args: Copy, A: Actor> ActorContext<Args, A> for ActorCell<Args, A> {
     }
 }
 
-struct InnerActorCell<Args: Copy, A: Actor> {
+struct InnerActorCell<Args: Copy + Sync + Send, A: Actor> {
     actor: A,
     mailbox: Mutex<VecDeque<Envelope>>,
     props: Props<Args, A>,
@@ -68,7 +68,7 @@ struct Envelope {
     message: Message,
 }
 
-impl<Args: Copy, A: Actor> InnerActorCell<Args, A> {
+impl<Args: Copy + Sync + Send, A: Actor> InnerActorCell<Args, A> {
     fn new(actor: A, props: Props<Args, A>, system: ActorSystem) -> InnerActorCell<Args, A> {
         InnerActorCell {
             actor: actor,
