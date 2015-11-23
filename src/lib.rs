@@ -15,10 +15,10 @@ pub use self::actors::{Actor, Message};
 pub use self::actor_ref::{ActorRef, CanReceive};
 pub use self::actor_system::ActorSystem;
 pub use self::props::Props;
-use self::actor_cell::ActorCell;
+pub use self::actor_cell::ActorCell;
 
 pub mod actors;
 pub mod actor_ref;
 pub mod actor_system;
 pub mod props;
-mod actor_cell;
+pub mod actor_cell;

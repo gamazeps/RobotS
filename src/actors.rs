@@ -1,10 +1,12 @@
+use {ActorCell};
+
 pub enum Message {
     Dummy,
     Text(String),
 }
 
-pub trait Actor: Send + Sync{
-    fn receive(&self, message: Message);
+pub trait Actor: Send + Sync + Sized{
+    fn receive<Args: Copy + Sync + Send + 'static>(&self, message: Message, context: ActorCell<Args, Self>);
 
     fn pre_start(&self) {}
 

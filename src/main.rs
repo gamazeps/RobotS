@@ -6,12 +6,12 @@ extern crate robots;
 
 use std::sync::Arc;
 
-use robots::{Actor, ActorSystem, Message, Props};
+use robots::{Actor, ActorSystem, ActorCell, Message, Props};
 
 struct MyActor;
 
 impl Actor for MyActor {
-    fn receive(&self, message: Message) {
+    fn receive<Args: Copy + Sync + Send + 'static>(&self, message: Message, context: ActorCell<Args, MyActor>) {
         match message {
             Message::Text(s) => println!("I received a text message: ({}) !", s),
             Message::Dummy => println!("I received a dummy message !"),

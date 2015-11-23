@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use {Actor, ActorRef, ActorSystem, CanReceive, Message, Props};
 
@@ -33,7 +33,7 @@ impl<Args: Copy + Sync + Send + 'static, A: Actor + 'static> ActorCell<Args, A> 
     }
 
     pub fn handle_envelope(&self) {
-        self.inner_cell.handle_envelope();
+        self.inner_cell.handle_envelope(self.clone());
     }
 }
 
@@ -67,6 +67,8 @@ struct InnerActorCell<Args: Copy + Sync + Send + 'static, A: Actor + 'static> {
     mailbox: Mutex<VecDeque<Envelope>>,
     props: Props<Args, A>,
     system: ActorSystem,
+    //current_sender: RwLock<Option<Arc<CanReceive + Sync>>>,
+    busy: Mutex<()>,
 }
 
 struct Envelope {
@@ -81,6 +83,8 @@ impl<Args: Copy + Sync + Send + 'static, A: Actor + 'static> InnerActorCell<Args
             mailbox: Mutex::new(VecDeque::new()),
             props: props,
             system: system,
+            //current_sender: RwLock::new(None),
+            busy: Mutex::new(()),
         }
     }
 
@@ -92,7 +96,11 @@ impl<Args: Copy + Sync + Send + 'static, A: Actor + 'static> InnerActorCell<Args
         self.receive_envelope(Envelope{message: message, sender: sender});
     }
 
-    fn handle_envelope(&self) {
+    fn handle_envelope(&self, context: ActorCell<Args, A>) {
+        // Allows to have a single thread working on an actor at a time, only issue is that threads
+        // still enter this function and block.
+        // TODO(gamazeps): fix this, obviously.
+        let _lock = self.busy.lock();
         let envelope = match self.mailbox.lock().unwrap().pop_front() {
             Some(envelope) => envelope,
             None => {
@@ -100,7 +108,11 @@ impl<Args: Copy + Sync + Send + 'static, A: Actor + 'static> InnerActorCell<Args
                 return;
             }
         };
-        self.actor.receive(envelope.message);
+        //{
+        //    let mut current_sender = self.current_sender.write().unwrap();
+        //    *current_envelope = Some(envelope.sender.clone());
+        //}
+        self.actor.receive(envelope.message, context);
     }
 
 }
