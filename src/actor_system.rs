@@ -2,6 +2,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::thread;
+use std::time::Duration;
 
 use {Actor, ActorRef, CanReceive, Props};
 use actor_cell::ActorCell;
@@ -9,6 +10,11 @@ use actor_cell::ActorCell;
 /// Wrapper around the threads handle and termination sender.
 type ConsumerThread = (thread::JoinHandle<()>, Sender<()>);
 
+/// ActorSystem, the struct that manages the creation of everything and that everything does what
+/// it is supposed to do.
+///
+/// NOTE: It currently holds the consumer threads and do not create the user, system and root
+/// actors.
 pub struct ActorSystem {
     name: Arc<String>,
     // For now we will have the worker pool in the system.
@@ -18,6 +24,9 @@ pub struct ActorSystem {
 }
 
 impl ActorSystem {
+    /// Creates a new ActorSystem.
+    ///
+    /// Note that no threads are started.
     pub fn new(name: String) -> ActorSystem {
         ActorSystem {
             name: Arc::new(name),
@@ -26,12 +35,14 @@ impl ActorSystem {
         }
     }
 
+    /// Spawns an Actor of type A, created using the Props given.
     pub fn actor_of<Args: Copy + Sync + Send + 'static, A: Actor + 'static>(&self, props: Props<Args, A>) -> ActorRef<Args, A> {
         let actor = props.create();
         let actor_cell = ActorCell::new(actor, props, self.clone());
         ActorRef::with_cell(actor_cell)
     }
 
+    /// Enqueues the given Actor on the queue of Actors with something to handle.
     pub fn enqueue_actor<Args: Copy + Sync + Send + 'static, A: Actor + 'static>(&self, actor_ref: ActorRef<Args, A>) {
         self.actors_queue.lock().unwrap().push_back(Arc::new(actor_ref));
     }
@@ -57,7 +68,7 @@ impl ActorSystem {
                     Some(actor) => actor.handle(),
                     None => {
                         println!("No waiting actor");
-                        thread::sleep_ms(500);
+                        thread::sleep(Duration::from_millis(500));
                     }
                 }
             }

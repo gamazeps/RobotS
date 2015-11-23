@@ -4,12 +4,13 @@
 #![cfg_attr(feature = "dev", feature(plugin))]
 #![cfg_attr(feature = "dev", plugin(clippy))]
 
-//#![warn(missing_docs,
-//        missing_copy_implementations,
-//        trivial_casts,
-//        trivial_numeric_casts,
-//        unused_import_braces,
-//        unused_qualifications)]
+#![warn(missing_docs,
+        missing_copy_implementations,
+        trivial_casts,
+        trivial_numeric_casts,
+        unused_import_braces,
+        unused_qualifications)]
+#![deny(warnings)]
 
 pub use self::actors::{Actor, Message};
 pub use self::actor_ref::{ActorRef, CanReceive};
@@ -17,8 +18,17 @@ pub use self::actor_system::ActorSystem;
 pub use self::props::Props;
 pub use self::actor_cell::{ActorCell, ActorContext};
 
+/// Module for the Actor trait.
 pub mod actors;
+
+/// Module for ActorRef, what is used for manipulating Actors.
 pub mod actor_ref;
+
+/// Module for the ActorSystem.
 pub mod actor_system;
+
+/// Module for Actor factories (Props).
 pub mod props;
+
+/// Module with the internals of Actors.
 pub mod actor_cell;

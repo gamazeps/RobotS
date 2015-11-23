@@ -5,13 +5,14 @@
 extern crate robots;
 
 use std::sync::{Arc};
+use std::time::Duration;
 
 use robots::{Actor, ActorSystem, ActorCell, ActorContext, Message, Props};
 
 struct MyActor;
 
 impl Actor for MyActor {
-    fn receive<Args: Copy + Sync + Send + 'static>(&self, message: Message, context: ActorCell<Args, MyActor>) {
+    fn receive<Args: Copy + Sync + Send + 'static>(&self, message: Message, _context: ActorCell<Args, MyActor>) {
         match message {
             Message::Text(s) => println!("I received a text message: ({}) !", s),
             Message::Dummy => println!("I received a dummy message !"),
@@ -69,9 +70,9 @@ fn main() {
     actor_ref_2.tell_to(actor_ref_1.clone(), Message::Numbers(7, 1));
     actor_ref_2.tell_to(actor_ref_1.clone(), Message::Numbers(11, 1));
 
-    std::thread::sleep_ms(100);
+    std::thread::sleep(Duration::from_millis(100));
     actor_system.terminate_threads(5);
-    std::thread::sleep_ms(100);
+    std::thread::sleep(Duration::from_millis(100));
 
     println!("Hello world!");
 }

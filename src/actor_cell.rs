@@ -3,6 +3,7 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use {Actor, ActorRef, ActorSystem, CanReceive, Message, Props};
 
+/// Main interface for accessing the main Actor information (system, mailbox, sender, props...).
 pub struct ActorCell<Args: Copy + Sync + Send + 'static, A: Actor + 'static> {
     // We have an inner structure in order to be able to generate new ActorCell easily.
     inner_cell: Arc<InnerActorCell<Args, A>>,
@@ -17,31 +18,45 @@ impl<Args:  Copy + Sync + Send, A: Actor> Clone for ActorCell<Args, A> {
 }
 
 impl<Args: Copy + Sync + Send + 'static, A: Actor + 'static> ActorCell<Args, A> {
+    /// Creates a new ActorCell.
     pub fn new(actor: A, props: Props<Args, A>, system: ActorSystem) -> ActorCell<Args, A> {
         ActorCell {
             inner_cell: Arc::new(InnerActorCell::new(actor, props, system)),
         }
     }
 
+    /// Puts a message with its sender in the Actor's mailbox and schedules the Actor.
     pub fn receive_message(&self, message: Message, sender: Arc<CanReceive + Sync>) {
         self.inner_cell.receive_message(message, sender);
         self.enqueue_actor_ref();
     }
 
+    /// Schedules the Actor on a thread.
     fn enqueue_actor_ref(&self) {
         self.inner_cell.system.enqueue_actor(self.actor_ref());
     }
 
+    /// Makes the Actor handle an envelope in its mailbaox.
     pub fn handle_envelope(&self) {
         self.inner_cell.handle_envelope(self.clone());
     }
 }
 
-/// This is the API that actors are supposed to see.
+/// This is the API that Actors are supposed to see of their context while handling a message.
 pub trait ActorContext<Args: Copy + Sync + Send + 'static, A: Actor + 'static> {
+    /// Returns an ActorRef of the Actor.
     fn actor_ref(&self) -> ActorRef<Args, A>;
+
+    /// Spawns an actor.
+    ///
+    /// Note that the supervision is not yet implemented so it does the same as creating an actor
+    /// through the actor system.
     fn actor_of(&self, props: Props<Args, A>) -> ActorRef<Args, A>;
+
+    /// Sends a message to the targeted CanReceive.
     fn tell<T: CanReceive>(&self, to: T, message: Message);
+
+    /// Returns an Arc to the sender of the message being handled.
     fn sender(&self) -> Arc<CanReceive + Sync>;
 }
 
@@ -70,7 +85,7 @@ impl<Args: Copy + Sync + Send + 'static, A: Actor + 'static> ActorContext<Args, 
 struct InnerActorCell<Args: Copy + Sync + Send + 'static, A: Actor + 'static> {
     actor: A,
     mailbox: Mutex<VecDeque<Envelope>>,
-    props: Props<Args, A>,
+    _props: Props<Args, A>,
     system: ActorSystem,
     current_sender: RwLock<Option<Arc<CanReceive + Sync>>>,
     busy: Mutex<()>,
@@ -86,7 +101,7 @@ impl<Args: Copy + Sync + Send + 'static, A: Actor + 'static> InnerActorCell<Args
         InnerActorCell {
             actor: actor,
             mailbox: Mutex::new(VecDeque::new()),
-            props: props,
+            _props: props,
             system: system,
             current_sender: RwLock::new(None),
             busy: Mutex::new(()),
