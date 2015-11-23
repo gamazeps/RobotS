@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, TryRecvError};
@@ -20,7 +21,7 @@ pub struct ActorSystem {
     // For now we will have the worker pool in the system.
     // TODO(find a way to have a clean way to separate system and user threads).
     consumer_threads: Arc<Mutex<Vec<ConsumerThread>>>,
-    actors_queue: Arc<Mutex<VecDeque<Arc<CanReceive + Sync>>>>,
+    actors_queue: Arc<Mutex<VecDeque<Arc<CanReceive<Any> + Sync>>>>,
 }
 
 impl ActorSystem {
@@ -36,14 +37,14 @@ impl ActorSystem {
     }
 
     /// Spawns an Actor of type A, created using the Props given.
-    pub fn actor_of<Args: Copy + Sync + Send + 'static, A: Actor + 'static>(&self, props: Props<Args, A>) -> ActorRef<Args, A> {
+    pub fn actor_of<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
         let actor = props.create();
         let actor_cell = ActorCell::new(actor, props, self.clone());
         ActorRef::with_cell(actor_cell)
     }
 
     /// Enqueues the given Actor on the queue of Actors with something to handle.
-    pub fn enqueue_actor<Args: Copy + Sync + Send + 'static, A: Actor + 'static>(&self, actor_ref: ActorRef<Args, A>) {
+    pub fn enqueue_actor<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send, A: Actor<M> + 'static>(&self, actor_ref: ActorRef<Args, M, A>) {
         self.actors_queue.lock().unwrap().push_back(Arc::new(actor_ref));
     }
 
