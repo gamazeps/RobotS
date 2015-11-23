@@ -3,6 +3,7 @@ use {ActorCell};
 pub enum Message {
     Dummy,
     Text(String),
+    Numbers(u32, u32),
 }
 
 pub trait Actor: Send + Sync + Sized{

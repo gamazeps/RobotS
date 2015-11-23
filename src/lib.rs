@@ -15,7 +15,7 @@ pub use self::actors::{Actor, Message};
 pub use self::actor_ref::{ActorRef, CanReceive};
 pub use self::actor_system::ActorSystem;
 pub use self::props::Props;
-pub use self::actor_cell::ActorCell;
+pub use self::actor_cell::{ActorCell, ActorContext};
 
 pub mod actors;
 pub mod actor_ref;
