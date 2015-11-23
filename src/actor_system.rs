@@ -26,10 +26,14 @@ impl ActorSystem {
         }
     }
 
-    pub fn actor_of<Args: Copy + Sync + Send, A: Actor>(&self, props: Props<Args, A>) -> ActorRef<Args, A> {
+    pub fn actor_of<Args: Copy + Sync + Send + 'static, A: Actor + 'static>(&self, props: Props<Args, A>) -> ActorRef<Args, A> {
         let actor = props.create();
         let actor_cell = ActorCell::new(actor, props, self.clone());
         ActorRef::with_cell(actor_cell)
+    }
+
+    pub fn enqueue_actor<Args: Copy + Sync + Send + 'static, A: Actor + 'static>(&self, actor_ref: ActorRef<Args, A>) {
+        self.actors_queue.lock().unwrap().push_back(Arc::new(actor_ref));
     }
 
     /// Spawns a thread that will consume messages from the `ActorRef` in `actors_queue`.

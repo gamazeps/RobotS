@@ -38,8 +38,6 @@ fn main() {
 
     actor_ref_1.receive(Message::Dummy);
     actor_ref_1.receive(Message::Text("Hello there".to_owned()));
-    actor_ref_1.handle();
-    actor_ref_1.handle();
 
     std::thread::sleep_ms(700);
     actor_system.terminate_threads(1);
