@@ -57,9 +57,7 @@ impl ActorSystem {
 
     /// Kills a consumer thread of the `ActorSystem`.
     pub fn terminate_thread(&self) {
-        let (handle, tx) = {self.consumer_threads.lock().unwrap().pop().unwrap()};
-        let _res = tx.send(());
-        let _res = handle.join();
+        self.terminate_threads(1);
     }
 
     /// Spawns n threads that will consume messages from the `ActorRef` in `actors_queue`.
@@ -69,10 +67,16 @@ impl ActorSystem {
         }
     }
 
-    /// Kills n consumer threads, currently kills them one by one.
+    /// Kills n consumer threads.
     pub fn terminate_threads(&self, n: u32) {
+        let mut handles = Vec::new();
         for _ in 0..n {
-            self.terminate_thread();
+            let (handle, tx) = {self.consumer_threads.lock().unwrap().pop().unwrap()};
+            let _res = tx.send(());
+            handles.push(handle);
+        }
+        for handle in handles {
+            let _res = handle.join();
         }
     }
 }
