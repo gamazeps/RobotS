@@ -42,6 +42,7 @@ pub trait ActorContext<Args: Copy + Sync + Send + 'static, A: Actor + 'static> {
     fn actor_ref(&self) -> ActorRef<Args, A>;
     fn actor_of(&self, props: Props<Args, A>) -> ActorRef<Args, A>;
     fn tell<T: CanReceive>(&self, to: T, message: Message);
+    fn sender(&self) -> Arc<CanReceive + Sync>;
 }
 
 impl<Args: Copy + Sync + Send + 'static, A: Actor + 'static> ActorContext<Args, A> for ActorCell<Args, A> {
@@ -60,6 +61,10 @@ impl<Args: Copy + Sync + Send + 'static, A: Actor + 'static> ActorContext<Args, 
     fn tell<T: CanReceive>(&self, to: T, message: Message) {
         to.receive(message, Arc::new(self.actor_ref()));
     }
+
+    fn sender(&self) -> Arc<CanReceive + Sync> {
+        self.inner_cell.current_sender.read().unwrap().as_ref().unwrap().clone()
+    }
 }
 
 struct InnerActorCell<Args: Copy + Sync + Send + 'static, A: Actor + 'static> {
@@ -67,7 +72,7 @@ struct InnerActorCell<Args: Copy + Sync + Send + 'static, A: Actor + 'static> {
     mailbox: Mutex<VecDeque<Envelope>>,
     props: Props<Args, A>,
     system: ActorSystem,
-    //current_sender: RwLock<Option<Arc<CanReceive + Sync>>>,
+    current_sender: RwLock<Option<Arc<CanReceive + Sync>>>,
     busy: Mutex<()>,
 }
 
@@ -83,7 +88,7 @@ impl<Args: Copy + Sync + Send + 'static, A: Actor + 'static> InnerActorCell<Args
             mailbox: Mutex::new(VecDeque::new()),
             props: props,
             system: system,
-            //current_sender: RwLock::new(None),
+            current_sender: RwLock::new(None),
             busy: Mutex::new(()),
         }
     }
@@ -108,10 +113,10 @@ impl<Args: Copy + Sync + Send + 'static, A: Actor + 'static> InnerActorCell<Args
                 return;
             }
         };
-        //{
-        //    let mut current_sender = self.current_sender.write().unwrap();
-        //    *current_envelope = Some(envelope.sender.clone());
-        //}
+        {
+            let mut current_sender = self.current_sender.write().unwrap();
+            *current_sender = Some(envelope.sender.clone());
+        };
         self.actor.receive(envelope.message, context);
     }
 
