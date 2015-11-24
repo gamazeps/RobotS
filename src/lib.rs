@@ -12,6 +12,8 @@
         unused_qualifications)]
 #![deny(warnings)]
 
+#![feature(reflect_marker)]
+
 pub use self::actors::{Actor, Message};
 pub use self::actor_ref::{ActorRef, CanReceive};
 pub use self::actor_system::ActorSystem;
