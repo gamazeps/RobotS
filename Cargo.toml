@@ -11,6 +11,9 @@ dev = ["clippy"]
 [dependencies]
 clippy = {version = "*", optional = true}
 
+[dependencies.eventual]
+git = "https://github.com/carllerche/eventual"
+
 [lib]
 name = "robots"
 path = "src/lib.rs"

@@ -14,6 +14,8 @@
 
 #![feature(reflect_marker)]
 
+extern crate eventual;
+
 pub use self::actors::{Actor, Message};
 pub use self::actor_ref::{ActorRef, CanReceive};
 pub use self::actor_system::ActorSystem;
