@@ -86,6 +86,7 @@ struct InnerActorCell<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync 
     _props: Props<Args, M, A>,
     system: ActorSystem,
     current_sender: Mutex<Option<Arc<CanReceive >>>,
+    busy: Mutex<()>,
 }
 
 struct Envelope<M> {
@@ -103,6 +104,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Refle
             _props: props,
             system: system,
             current_sender: Mutex::new(None),
+            busy: Mutex::new(()),
         }
     }
 
@@ -122,6 +124,8 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Refle
                 return;
             }
         };
+        // Now we do not want users to be able to touch current_sender while the actor is busy.
+        let _lock = self.busy.lock();
         {
             let mut current_sender = self.current_sender.lock().unwrap();
             *current_sender = Some(envelope.sender.clone());

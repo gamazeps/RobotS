@@ -28,7 +28,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Refle
     }
 
     /// Sends a Message to a CanReceive<Message>.
-    pub fn tell_to<Message: Copy + Send + 'static + Reflect, T: CanReceive>(&self, to: T, message: Message) {
+    pub fn tell_to<Message: Copy + Send + Sync + 'static + Reflect, T: CanReceive>(&self, to: T, message: Message) {
         self.actor_cell.tell(to, message);
     }
 }
