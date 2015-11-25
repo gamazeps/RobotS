@@ -12,8 +12,6 @@
         unused_qualifications)]
 #![deny(warnings)]
 
-#![feature(reflect_marker)]
-
 extern crate eventual;
 
 pub use self::actors::{Actor, Message};

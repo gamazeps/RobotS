@@ -1,16 +1,16 @@
+use std::any::Any;
 use std::collections::VecDeque;
-use std::marker::Reflect;
 use std::sync::{Arc, Mutex};
 
 use {Actor, ActorRef, ActorSystem, CanReceive, Props};
 
 /// Main interface for accessing the main Actor information (system, mailbox, sender, props...).
-pub struct ActorCell<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> {
+pub struct ActorCell<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> {
     // We have an inner structure in order to be able to generate new ActorCell easily.
     inner_cell: Arc<InnerActorCell<Args, M, A>>,
 }
 
-impl<Args: Copy + Send + Sync, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M>> Clone for ActorCell<Args, M, A> {
+impl<Args: Copy + Send + Sync, M: Copy + Send + Sync + 'static + Any, A: Actor<M>> Clone for ActorCell<Args, M, A> {
     fn clone(&self) -> ActorCell<Args, M, A> {
         ActorCell {
             inner_cell: self.inner_cell.clone()
@@ -19,7 +19,7 @@ impl<Args: Copy + Send + Sync, M: Copy + Send + Sync + 'static + Reflect, A: Act
 }
 
 
-impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> ActorCell<Args, M, A> {
+impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> ActorCell<Args, M, A> {
     /// Creates a new ActorCell.
     pub fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem) -> ActorCell<Args, M, A> {
         ActorCell {
@@ -40,7 +40,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Refle
 }
 
 /// This is the API that Actors are supposed to see of their context while handling a message.
-pub trait ActorContext<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> {
+pub trait ActorContext<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> {
     /// Returns an ActorRef of the Actor.
     fn actor_ref(&self) -> ActorRef<Args, M, A>;
 
@@ -51,14 +51,14 @@ pub trait ActorContext<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync
     fn actor_of(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A>;
 
     /// Sends a Message to the targeted CanReceive<M>.
-    fn tell<Message: Copy + Send + Sync + 'static + Reflect, T: CanReceive>(&self, to: T, message: Message);
+    fn tell<Message: Copy + Send + Sync + 'static + Any, T: CanReceive>(&self, to: T, message: Message);
 
     /// Returns an Arc to the sender of the message being handled.
     // NOTE: FUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
     fn sender(&self) -> Arc<CanReceive >;
 }
 
-impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> ActorContext<Args, M, A> for ActorCell<Args, M, A> {
+impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> ActorContext<Args, M, A> for ActorCell<Args, M, A> {
     fn actor_ref(&self) -> ActorRef<Args, M, A> {
         ActorRef::with_cell(self.clone())
     }
@@ -71,7 +71,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Refle
         ActorRef::with_cell(actor_cell)
     }
 
-    fn tell<Message: Copy + Send + Sync + 'static + Reflect, T: CanReceive>(&self, to: T, message: Message) {
+    fn tell<Message: Copy + Send + Sync + 'static + Any, T: CanReceive>(&self, to: T, message: Message) {
         to.receive(Box::new(message), Arc::new(self.actor_ref()));
     }
 
@@ -80,7 +80,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Refle
     }
 }
 
-struct InnerActorCell<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> {
+struct InnerActorCell<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> {
     actor: Mutex<A>,
     mailbox: Mutex<VecDeque<Envelope<M>>>,
     _props: Props<Args, M, A>,
@@ -94,10 +94,8 @@ struct Envelope<M> {
     sender: Arc<CanReceive >,
 }
 
-fn require_send<T: Send>() {}
-impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> InnerActorCell<Args, M, A> {
+impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> InnerActorCell<Args, M, A> {
     fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem) -> InnerActorCell<Args, M, A> {
-        require_send::<InnerActorCell<Args, M, A>>();
         InnerActorCell {
             actor: Mutex::new(actor),
             mailbox: Mutex::new(VecDeque::new()),

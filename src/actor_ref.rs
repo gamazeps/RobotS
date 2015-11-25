@@ -1,6 +1,5 @@
-use std::sync::Arc;
 use std::any::Any;
-use std::marker::Reflect;
+use std::sync::Arc;
 
 use Actor;
 use actor_cell::{ActorCell, ActorContext};
@@ -9,17 +8,17 @@ use actor_cell::{ActorCell, ActorContext};
 ///
 /// The only thing it can do is send and receive messages (according to the actor model in defined
 /// by Hewitt).
-pub struct ActorRef<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> {
+pub struct ActorRef<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> {
     actor_cell: ActorCell<Args, M, A>,
 }
 
-impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> Clone for ActorRef<Args, M, A> {
+impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> Clone for ActorRef<Args, M, A> {
     fn clone(&self) -> ActorRef<Args, M, A> {
         ActorRef::with_cell(self.actor_cell.clone())
     }
 }
 
-impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> ActorRef<Args, M, A> {
+impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> ActorRef<Args, M, A> {
     /// Creates an ActorRef<Args, M, A> with the given ActorCell<Args, M, A>.
     pub fn with_cell(cell: ActorCell<Args, M, A>) -> ActorRef<Args, M, A> {
         ActorRef {
@@ -28,7 +27,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Refle
     }
 
     /// Sends a Message to a CanReceive<Message>.
-    pub fn tell_to<Message: Copy + Send + Sync + 'static + Reflect, T: CanReceive>(&self, to: T, message: Message) {
+    pub fn tell_to<Message: Copy + Send + Sync + 'static + Any, T: CanReceive>(&self, to: T, message: Message) {
         self.actor_cell.tell(to, message);
     }
 }
@@ -45,7 +44,7 @@ pub trait CanReceive: Send + Sync {
     fn handle(&self);
 }
 
-impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> CanReceive for ActorRef<Args, M, A> {
+impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> CanReceive for ActorRef<Args, M, A> {
     fn receive(&self, message: Box<Any>, sender: Arc<CanReceive >) {
         let cast = message.downcast::<M>();
         match cast {

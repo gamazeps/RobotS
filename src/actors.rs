@@ -1,4 +1,4 @@
-use std::marker::Reflect;
+use std::any::Any;
 
 use ActorCell;
 
@@ -15,7 +15,7 @@ pub enum Message {
 /// This is the trait to implement to become an Actor.
 ///
 /// Normaly only the receive method has to be implemented.
-pub trait Actor<M: Copy + Send + Sync + 'static + Reflect>: Send  + Sized {
+pub trait Actor<M: Copy + Send + Sync + 'static + Any>: Send  + Sized {
 
     /// Single method to be implemented for an Actor.
     ///

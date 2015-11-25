@@ -1,5 +1,5 @@
+use std::any::Any;
 use std::collections::VecDeque;
-use std::marker::Reflect;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::thread;
@@ -37,14 +37,14 @@ impl ActorSystem {
     }
 
     /// Spawns an Actor of type A, created using the Props given.
-    pub fn actor_of<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
+    pub fn actor_of<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
         let actor = props.create();
         let actor_cell = ActorCell::new(actor, props, self.clone());
         ActorRef::with_cell(actor_cell)
     }
 
     /// Enqueues the given Actor on the queue of Actors with something to handle.
-    pub fn enqueue_actor<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static>(&self, actor_ref: ActorRef<Args, M, A>) {
+    pub fn enqueue_actor<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static>(&self, actor_ref: ActorRef<Args, M, A>) {
         self.actors_queue.lock().unwrap().push_back(Arc::new(actor_ref));
     }
 
