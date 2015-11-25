@@ -1,16 +1,16 @@
 use std::collections::VecDeque;
 use std::marker::Reflect;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex};
 
 use {Actor, ActorRef, ActorSystem, CanReceive, Props};
 
 /// Main interface for accessing the main Actor information (system, mailbox, sender, props...).
-pub struct ActorCell<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send + 'static + Reflect, A: Actor<M> + 'static> {
+pub struct ActorCell<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> {
     // We have an inner structure in order to be able to generate new ActorCell easily.
     inner_cell: Arc<InnerActorCell<Args, M, A>>,
 }
 
-impl<Args:  Copy + Sync + Send, M: Copy + Sync + Send + 'static + Reflect, A: Actor<M>> Clone for ActorCell<Args, M, A> {
+impl<Args: Copy + Send + Sync, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M>> Clone for ActorCell<Args, M, A> {
     fn clone(&self) -> ActorCell<Args, M, A> {
         ActorCell {
             inner_cell: self.inner_cell.clone()
@@ -18,7 +18,8 @@ impl<Args:  Copy + Sync + Send, M: Copy + Sync + Send + 'static + Reflect, A: Ac
     }
 }
 
-impl<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send + 'static + Reflect, A: Actor<M> + 'static> ActorCell<Args, M, A> {
+
+impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> ActorCell<Args, M, A> {
     /// Creates a new ActorCell.
     pub fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem) -> ActorCell<Args, M, A> {
         ActorCell {
@@ -27,13 +28,8 @@ impl<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send + 'static + Refle
     }
 
     /// Puts a message with its sender in the Actor's mailbox and schedules the Actor.
-    pub fn receive_message(&self, message: M, sender: Arc<CanReceive + Sync>) {
+    pub fn receive_message(&self, message: M, sender: Arc<CanReceive >) {
         self.inner_cell.receive_message(message, sender);
-        self.enqueue_actor_ref();
-    }
-
-    /// Schedules the Actor on a thread.
-    fn enqueue_actor_ref(&self) {
         self.inner_cell.system.enqueue_actor(self.actor_ref());
     }
 
@@ -44,7 +40,7 @@ impl<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send + 'static + Refle
 }
 
 /// This is the API that Actors are supposed to see of their context while handling a message.
-pub trait ActorContext<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send + 'static + Reflect, A: Actor<M> + 'static> {
+pub trait ActorContext<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> {
     /// Returns an ActorRef of the Actor.
     fn actor_ref(&self) -> ActorRef<Args, M, A>;
 
@@ -55,14 +51,14 @@ pub trait ActorContext<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send
     fn actor_of(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A>;
 
     /// Sends a Message to the targeted CanReceive<M>.
-    fn tell<Message: Copy + Sync + Send + 'static + Reflect, T: CanReceive>(&self, to: T, message: Message);
+    fn tell<Message: Copy + Send + Sync + 'static + Reflect, T: CanReceive>(&self, to: T, message: Message);
 
     /// Returns an Arc to the sender of the message being handled.
     // NOTE: FUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
-    fn sender(&self) -> Arc<CanReceive + Sync>;
+    fn sender(&self) -> Arc<CanReceive >;
 }
 
-impl<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send + 'static + Reflect, A: Actor<M> + 'static> ActorContext<Args, M, A> for ActorCell<Args, M, A> {
+impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> ActorContext<Args, M, A> for ActorCell<Args, M, A> {
     fn actor_ref(&self) -> ActorRef<Args, M, A> {
         ActorRef::with_cell(self.clone())
     }
@@ -75,38 +71,38 @@ impl<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send + 'static + Refle
         ActorRef::with_cell(actor_cell)
     }
 
-    fn tell<Message: Copy + Sync + Send + 'static + Reflect, T: CanReceive>(&self, to: T, message: Message) {
+    fn tell<Message: Copy + Send + Sync + 'static + Reflect, T: CanReceive>(&self, to: T, message: Message) {
         to.receive(Box::new(message), Arc::new(self.actor_ref()));
     }
 
-    fn sender(&self) -> Arc<CanReceive + Sync> {
-        self.inner_cell.current_sender.read().unwrap().as_ref().unwrap().clone()
+    fn sender(&self) -> Arc<CanReceive > {
+        self.inner_cell.current_sender.lock().unwrap().as_ref().unwrap().clone()
     }
 }
 
-struct InnerActorCell<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send + 'static + Reflect, A: Actor<M> + 'static> {
-    actor: A,
+struct InnerActorCell<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> {
+    actor: Mutex<A>,
     mailbox: Mutex<VecDeque<Envelope<M>>>,
     _props: Props<Args, M, A>,
     system: ActorSystem,
-    current_sender: RwLock<Option<Arc<CanReceive + Sync>>>,
-    busy: Mutex<()>,
+    current_sender: Mutex<Option<Arc<CanReceive >>>,
 }
 
 struct Envelope<M> {
     message: M,
-    sender: Arc<CanReceive + Sync>,
+    sender: Arc<CanReceive >,
 }
 
-impl<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send + 'static + Reflect, A: Actor<M> + 'static> InnerActorCell<Args, M, A> {
+fn require_send<T: Send>() {}
+impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Reflect, A: Actor<M> + 'static> InnerActorCell<Args, M, A> {
     fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem) -> InnerActorCell<Args, M, A> {
+        require_send::<InnerActorCell<Args, M, A>>();
         InnerActorCell {
-            actor: actor,
+            actor: Mutex::new(actor),
             mailbox: Mutex::new(VecDeque::new()),
             _props: props,
             system: system,
-            current_sender: RwLock::new(None),
-            busy: Mutex::new(()),
+            current_sender: Mutex::new(None),
         }
     }
 
@@ -114,15 +110,11 @@ impl<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send + 'static + Refle
         self.mailbox.lock().unwrap().push_back(envelope);
     }
 
-    fn receive_message(&self, message: M, sender: Arc<CanReceive + Sync>) {
+    fn receive_message(&self, message: M, sender: Arc<CanReceive >) {
         self.receive_envelope(Envelope{message: message, sender: sender});
     }
 
     fn handle_envelope(&self, context: ActorCell<Args, M, A>) {
-        // Allows to have a single thread working on an actor at a time, only issue is that threads
-        // still enter this function and block.
-        // TODO(gamazeps): fix this, obviously.
-        let _lock = self.busy.lock();
         let envelope = match self.mailbox.lock().unwrap().pop_front() {
             Some(envelope) => envelope,
             None => {
@@ -131,10 +123,13 @@ impl<Args: Copy + Sync + Send + 'static, M: Copy + Sync + Send + 'static + Refle
             }
         };
         {
-            let mut current_sender = self.current_sender.write().unwrap();
+            let mut current_sender = self.current_sender.lock().unwrap();
             *current_sender = Some(envelope.sender.clone());
         };
-        self.actor.receive(envelope.message, context);
+        {
+            let actor = self.actor.lock().unwrap();
+            actor.receive(envelope.message, context);
+        }
     }
 
 }

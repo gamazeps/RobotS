@@ -15,7 +15,7 @@ pub enum Message {
 /// This is the trait to implement to become an Actor.
 ///
 /// Normaly only the receive method has to be implemented.
-pub trait Actor<M: Copy + Sync + Send + 'static + Reflect>: Send + Sync + Sized {
+pub trait Actor<M: Copy + Send + Sync + 'static + Reflect>: Send  + Sized {
 
     /// Single method to be implemented for an Actor.
     ///
@@ -27,7 +27,7 @@ pub trait Actor<M: Copy + Sync + Send + 'static + Reflect>: Send + Sync + Sized 
     /// struct MyActor;
     ///
     /// impl Actor for MyActor {
-    ///     fn receive<Args: Copy + Sync + Send + 'static>
+    ///     fn receive<Args: Copy + Send + Sync + 'static>
     ///         (&self, message: Message, _context: ActorCell<Args, MyActor>) {
     ///         match message {
     ///             Message::Dummy => context.tell(context.sender(), Message::Dummy),
@@ -35,7 +35,7 @@ pub trait Actor<M: Copy + Sync + Send + 'static + Reflect>: Send + Sync + Sized 
     ///         }
     ///     }
     /// }
-    fn receive<Args: Copy + Sync + Send + 'static>(&self, message: M, context: ActorCell<Args, M, Self>);
+    fn receive<Args: Copy + Send + Sync + 'static>(&self, message: M, context: ActorCell<Args, M, Self>);
 
     /// Method called before the Actor is started.
     fn pre_start(&self) {
