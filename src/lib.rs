@@ -14,7 +14,7 @@
 
 extern crate eventual;
 
-pub use self::actors::{Actor, Message};
+pub use self::actors::Actor;
 pub use self::actor_ref::{ActorRef, CanReceive};
 pub use self::actor_system::ActorSystem;
 pub use self::props::Props;

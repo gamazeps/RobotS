@@ -2,16 +2,6 @@ use std::any::Any;
 
 use ActorCell;
 
-/// Dummy
-pub enum Message {
-    /// Dummy
-    Dummy,
-    /// Dummy
-    Text(String),
-    /// Dummy
-    Numbers(u32, u32),
-}
-
 /// This is the trait to implement to become an Actor.
 ///
 /// Normaly only the receive method has to be implemented.
