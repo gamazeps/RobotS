@@ -21,9 +21,9 @@ impl<Args: Copy + Send + Sync, M: Copy + Send + Sync + 'static + Any, A: Actor<M
 
 impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> ActorCell<Args, M, A> {
     /// Creates a new ActorCell.
-    pub fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem) -> ActorCell<Args, M, A> {
+    pub fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem, father: Arc<CanReceive>) -> ActorCell<Args, M, A> {
         ActorCell {
-            inner_cell: Arc::new(InnerActorCell::new(actor, props, system)),
+            inner_cell: Arc::new(InnerActorCell::new(actor, props, system, father)),
         }
     }
 
@@ -66,7 +66,8 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
     fn actor_of(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
         let actor = props.create();
         let actor_cell  = ActorCell {
-            inner_cell: Arc::new(InnerActorCell::new(actor, props, self.inner_cell.system.clone())),
+            inner_cell: Arc::new(InnerActorCell::new(actor, props, self.inner_cell.system.clone(),
+                                                     Arc::new(self.actor_ref()))),
         };
         ActorRef::with_cell(actor_cell)
     }
@@ -87,15 +88,16 @@ struct InnerActorCell<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync 
     system: ActorSystem,
     current_sender: Mutex<Option<Arc<CanReceive >>>,
     busy: Mutex<()>,
+    _father: Arc<CanReceive>,
 }
 
 struct Envelope<M> {
     message: M,
-    sender: Arc<CanReceive >,
+    sender: Arc<CanReceive>,
 }
 
 impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> InnerActorCell<Args, M, A> {
-    fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem) -> InnerActorCell<Args, M, A> {
+    fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem, father: Arc<CanReceive>) -> InnerActorCell<Args, M, A> {
         InnerActorCell {
             actor: Mutex::new(actor),
             mailbox: Mutex::new(VecDeque::new()),
@@ -103,6 +105,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
             system: system,
             current_sender: Mutex::new(None),
             busy: Mutex::new(()),
+            _father: father,
         }
     }
 

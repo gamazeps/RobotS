@@ -5,6 +5,7 @@ use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::thread;
 
 use {Actor, ActorRef, CanReceive, Props};
+use cthuluh::Cthuluh;
 use actor_cell::ActorCell;
 
 /// Wrapper around the threads handle and termination sender.
@@ -39,7 +40,8 @@ impl ActorSystem {
     /// Spawns an Actor of type A, created using the Props given.
     pub fn actor_of<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
         let actor = props.create();
-        let actor_cell = ActorCell::new(actor, props, self.clone());
+        // TODO(gamazeps): remove this once we have the root and user actors.
+        let actor_cell = ActorCell::new(actor, props, self.clone(), Arc::new(Cthuluh::new()));
         ActorRef::with_cell(actor_cell)
     }
 
