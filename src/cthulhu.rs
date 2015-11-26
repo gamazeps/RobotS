@@ -4,19 +4,19 @@ use std::sync::Arc;
 
 use CanReceive;
 
-/// Cthuluh is the original Actor in the Actor Hierarchy (used as the father of the root actor).
-/// Naturaly waking Cthuluh up (by sending him a message) will wreck havoc on your application.
+/// Cthulhu is the original Actor in the Actor Hierarchy (used as the father of the root actor).
+/// Naturaly waking Cthulhu up (by sending him a message) will wreck havoc on your application.
 #[derive(Copy, Clone)]
-pub struct Cthuluh;
+pub struct Cthulhu;
 
-impl Cthuluh {
+impl Cthulhu {
     /// Constructor.
-    pub fn new() -> Cthuluh {
-        Cthuluh
+    pub fn new() -> Cthulhu {
+        Cthulhu
     }
 }
 
-impl CanReceive for Cthuluh {
+impl CanReceive for Cthulhu {
     fn receive(&self, _message: Box<Any>, _sender: Arc<CanReceive >) {
         println!("Send a message to the original actor. \r\n
             This should happen only if the root actor sends him a messages and that happens only if

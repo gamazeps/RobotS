@@ -5,7 +5,7 @@ use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::thread;
 
 use {Actor, ActorRef, CanReceive, Props};
-use cthuluh::Cthuluh;
+use cthulhu::Cthulhu;
 use user_actor::UserActorRef;
 
 /// Wrapper around the threads handle and termination sender.
@@ -23,7 +23,7 @@ pub struct ActorSystem {
     consumer_threads: Arc<Mutex<Vec<ConsumerThread>>>,
     // TODO(gamazeps): Have a CanHandle Trait for that.
     actors_queue: Arc<Mutex<VecDeque<Arc<CanReceive >>>>,
-    cthuluh: Arc<Cthuluh>,
+    cthulhu: Arc<Cthulhu>,
     user_actor: Mutex<Option<UserActorRef>>,
 }
 
@@ -36,7 +36,7 @@ impl ActorSystem {
             name: Arc::new(name),
             consumer_threads: Arc::new(Mutex::new(Vec::new())),
             actors_queue: Arc::new(Mutex::new(VecDeque::new())),
-            cthuluh: Arc::new(Cthuluh::new()),
+            cthulhu: Arc::new(Cthulhu::new()),
             user_actor: Mutex::new(None),
         };
         actor_system.spawn_user_actor();
@@ -44,7 +44,7 @@ impl ActorSystem {
     }
 
     fn spawn_user_actor(&self) {
-        let user_actor = UserActorRef::new(self.clone(), self.cthuluh.clone());
+        let user_actor = UserActorRef::new(self.clone(), self.cthulhu.clone());
         *self.user_actor.lock().unwrap() = Some(user_actor);
     }
 
@@ -123,7 +123,7 @@ impl Clone for ActorSystem {
             name: self.name.clone(),
             consumer_threads: self.consumer_threads.clone(),
             actors_queue: self.actors_queue.clone(),
-            cthuluh: self.cthuluh.clone(),
+            cthulhu: self.cthulhu.clone(),
             user_actor: Mutex::new(self.user_actor.lock().unwrap().clone()),
         }
     }

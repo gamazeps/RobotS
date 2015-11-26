@@ -2,7 +2,7 @@ use std::any::Any;
 use std::sync::Arc;
 
 use {Actor, ActorCell, ActorContext, ActorRef, ActorSystem, CanReceive, Props};
-use cthuluh::Cthuluh;
+use cthulhu::Cthulhu;
 
 pub struct UserActorRef {
     actor_cell: ActorCell<(), (), InternalUserActor>,
@@ -10,10 +10,10 @@ pub struct UserActorRef {
 
 impl UserActorRef {
     /// Creates a UserActor.
-    pub fn new(system: ActorSystem, cthuluh: Arc<Cthuluh>) -> UserActorRef {
+    pub fn new(system: ActorSystem, cthulhu: Arc<Cthulhu>) -> UserActorRef {
         let props = Props::new(Arc::new(InternalUserActor::new), ());
         let actor = props.create();
-        let actor_cell = ActorCell::new(actor, props, system, cthuluh);
+        let actor_cell = ActorCell::new(actor, props, system, cthulhu);
         UserActorRef { actor_cell: actor_cell }
     }
 
