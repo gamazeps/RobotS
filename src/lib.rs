@@ -39,4 +39,6 @@ pub mod actor_cell;
 pub mod ask;
 
 /// Module containing the original actor.
-pub mod cthuluh;
+mod cthuluh;
+
+mod user_actor;

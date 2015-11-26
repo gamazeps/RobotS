@@ -48,13 +48,12 @@ pub trait ActorContext<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync
     ///
     /// Note that the supervision is not yet implemented so it does the same as creating an actor
     /// through the actor system.
-    fn actor_of(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A>;
+    fn actor_of<ArgBis: Copy + Send + Sync + 'static, MBis: Copy + Send + Sync + 'static + Any, ABis: Actor<MBis> + 'static>(&self, props: Props<ArgBis, MBis, ABis>) -> ActorRef<ArgBis, MBis, ABis>;
 
     /// Sends a Message to the targeted CanReceive<M>.
     fn tell<Message: Copy + Send + Sync + 'static + Any, T: CanReceive>(&self, to: T, message: Message);
 
     /// Returns an Arc to the sender of the message being handled.
-    // NOTE: FUUUUUUUUUUUUUUUUUUUUUUUUUUUUUUU
     fn sender(&self) -> Arc<CanReceive >;
 }
 
@@ -63,7 +62,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
         ActorRef::with_cell(self.clone())
     }
 
-    fn actor_of(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
+    fn actor_of<ArgBis: Copy + Send + Sync + 'static, MBis: Copy + Send + Sync + 'static + Any, ABis: Actor<MBis> + 'static>(&self, props: Props<ArgBis, MBis, ABis>) -> ActorRef<ArgBis, MBis, ABis> {
         let actor = props.create();
         let actor_cell  = ActorCell {
             inner_cell: Arc::new(InnerActorCell::new(actor, props, self.inner_cell.system.clone(),

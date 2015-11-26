@@ -6,7 +6,7 @@ use std::thread;
 
 use {Actor, ActorRef, CanReceive, Props};
 use cthuluh::Cthuluh;
-use actor_cell::ActorCell;
+use user_actor::UserActorRef;
 
 /// Wrapper around the threads handle and termination sender.
 type ConsumerThread = (thread::JoinHandle<()>, Sender<()>);
@@ -23,6 +23,8 @@ pub struct ActorSystem {
     consumer_threads: Arc<Mutex<Vec<ConsumerThread>>>,
     // TODO(gamazeps): Have a CanHandle Trait for that.
     actors_queue: Arc<Mutex<VecDeque<Arc<CanReceive >>>>,
+    cthuluh: Arc<Cthuluh>,
+    user_actor: Mutex<Option<UserActorRef>>,
 }
 
 impl ActorSystem {
@@ -30,19 +32,29 @@ impl ActorSystem {
     ///
     /// Note that no threads are started.
     pub fn new(name: String) -> ActorSystem {
-        ActorSystem {
+        let actor_system = ActorSystem {
             name: Arc::new(name),
             consumer_threads: Arc::new(Mutex::new(Vec::new())),
             actors_queue: Arc::new(Mutex::new(VecDeque::new())),
-        }
+            cthuluh: Arc::new(Cthuluh::new()),
+            user_actor: Mutex::new(None),
+        };
+        actor_system.spawn_user_actor();
+        actor_system
+    }
+
+    fn spawn_user_actor(&self) {
+        let user_actor = UserActorRef::new(self.clone(), self.cthuluh.clone());
+        *self.user_actor.lock().unwrap() = Some(user_actor);
     }
 
     /// Spawns an Actor of type A, created using the Props given.
     pub fn actor_of<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
-        let actor = props.create();
-        // TODO(gamazeps): remove this once we have the root and user actors.
-        let actor_cell = ActorCell::new(actor, props, self.clone(), Arc::new(Cthuluh::new()));
-        ActorRef::with_cell(actor_cell)
+        let user_actor = self.user_actor.lock().unwrap().clone();
+        match user_actor {
+            Some(user_actor) => user_actor.actor_of(props),
+            None => panic!("The user actor is not initialised"),
+        }
     }
 
     /// Enqueues the given Actor on the queue of Actors with something to handle.
@@ -111,6 +123,8 @@ impl Clone for ActorSystem {
             name: self.name.clone(),
             consumer_threads: self.consumer_threads.clone(),
             actors_queue: self.actors_queue.clone(),
+            cthuluh: self.cthuluh.clone(),
+            user_actor: Mutex::new(self.user_actor.lock().unwrap().clone()),
         }
     }
 }
