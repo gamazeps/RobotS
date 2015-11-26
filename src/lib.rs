@@ -37,3 +37,6 @@ pub mod actor_cell;
 
 /// Module allowing the use of the ask pattern.
 pub mod ask;
+
+/// Module containing the original actor.
+pub mod cthuluh;
