@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use {Actor, ActorCell, ActorContext, ActorRef, ActorSystem, CanReceive, Props};
+use {Actor, ActorCell, ActorContext, ActorRef, ActorSystem, CanReceive, Props, SystemMessage};
 use cthulhu::Cthulhu;
 
 pub struct UserActorRef {
@@ -38,6 +38,11 @@ impl CanReceive for UserActorRef {
             Err(_) => panic!("Send a message of the wrong type to an actor"),
         }
     }
+
+    fn receive_system_message(&self, system_message: SystemMessage) {
+        self.actor_cell.receive_system_message(system_message);
+    }
+
     fn handle(&self) {
         self.actor_cell.handle_envelope();
     }

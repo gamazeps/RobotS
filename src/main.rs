@@ -4,10 +4,11 @@
 
 extern crate robots;
 
+use std::cell::Cell;
 use std::sync::{Arc};
 use std::time::Duration;
 
-use robots::{Actor, ActorSystem, ActorCell, ActorContext, Props};
+use robots::{Actor, ActorSystem, ActorCell, ActorContext, CanReceive, Props, SystemMessage};
 
 /// Basic factorial.
 struct Factorial;
@@ -29,21 +30,56 @@ impl Factorial {
     }
 }
 
+#[derive(Copy, Clone)]
+enum InternalStateMessage {
+    Set(u32),
+    Get,
+}
+
+/// Basic factorial.
+struct InternalState {
+    counter: Cell<u32>
+}
+
+impl Actor<InternalStateMessage> for InternalState {
+    fn receive<Args: Copy + Sync + Send + 'static>(&self, message: InternalStateMessage, _context: ActorCell<Args, InternalStateMessage, InternalState>) {
+        match message {
+            InternalStateMessage::Get => println!("internal state: {}", self.counter.get()),
+            InternalStateMessage::Set(num) => self.counter.set(num),
+        }
+    }
+}
+
+impl InternalState {
+    fn new(count: u32) -> InternalState {
+        InternalState { counter: Cell::new(count) }
+    }
+}
+
 fn main() {
 
     let actor_system = ActorSystem::new("test".to_owned());
     actor_system.spawn_threads(1);
 
-    let props = Props::new(Arc::new(Factorial::new), ());
-    let actor_ref_1 = actor_system.actor_of(props.clone());
+    let props_factorial = Props::new(Arc::new(Factorial::new), ());
+    let factorial_actor_ref = actor_system.actor_of(props_factorial.clone());
 
-    let actor_ref_2 = actor_system.actor_of(props.clone());
+    let restarted_props = Props::new(Arc::new(InternalState::new), 3);
+    let restarted_actor_ref = actor_system.actor_of(restarted_props.clone());
 
-    actor_ref_2.tell_to(actor_ref_1.clone(), (3u32, 1u32));
-    actor_ref_2.tell_to(actor_ref_1.clone(), (7u32, 1u32));
-    actor_ref_2.tell_to(actor_ref_1.clone(), (11u32, 1u32));
+    restarted_actor_ref.tell_to(factorial_actor_ref.clone(), (3u32, 1u32));
+    restarted_actor_ref.tell_to(factorial_actor_ref.clone(), (7u32, 1u32));
+    restarted_actor_ref.tell_to(factorial_actor_ref.clone(), (11u32, 1u32));
+
+    factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Get);
+    factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Set(7));
+    factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Get);
 
     std::thread::sleep(Duration::from_millis(1));
+    restarted_actor_ref.receive_system_message(SystemMessage::Restart);
+    factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Get);
+
+    std::thread::sleep(Duration::from_millis(3));
     actor_system.terminate_threads(1);
     std::thread::sleep(Duration::from_millis(1));
 

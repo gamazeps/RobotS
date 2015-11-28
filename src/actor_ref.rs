@@ -2,7 +2,7 @@ use std::any::Any;
 use std::sync::Arc;
 
 use Actor;
-use actor_cell::{ActorCell, ActorContext};
+use {ActorCell, ActorContext, SystemMessage};
 
 /// This is a reference to an Actor and what is supposed to be manipulated by the user.
 ///
@@ -36,7 +36,10 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
 /// Note that for the moment these are not typed, but it will be easy to add.
 pub trait CanReceive: Send + Sync {
     /// Puts the message in a mailbox and enqueues the CanReceive.
-    fn receive(&self, message: Box<Any>, sender: Arc<CanReceive >);
+    fn receive(&self, message: Box<Any>, sender: Arc<CanReceive>);
+
+    /// Puts the system message in a mailbox and enqueues the CanReceive.
+    fn receive_system_message(&self, system_message: SystemMessage);
 
     /// Handles the message.
     ///
@@ -45,12 +48,16 @@ pub trait CanReceive: Send + Sync {
 }
 
 impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> CanReceive for ActorRef<Args, M, A> {
-    fn receive(&self, message: Box<Any>, sender: Arc<CanReceive >) {
+    fn receive(&self, message: Box<Any>, sender: Arc<CanReceive>) {
         let cast = message.downcast::<M>();
         match cast {
             Ok(message) => self.actor_cell.receive_message(*message, sender),
             Err(_) => panic!("Send a message of the wrong type to an actor"),
         }
+    }
+
+    fn receive_system_message(&self, system_message: SystemMessage) {
+        self.actor_cell.receive_system_message(system_message);
     }
 
     fn handle(&self) {

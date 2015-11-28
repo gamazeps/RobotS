@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use eventual::{Future, Complete};
 
-use {Actor, ActorCell, ActorContext, CanReceive};
+use {Actor, ActorCell, ActorContext, CanReceive, SystemMessage};
 
 impl<M: Copy + Send + Sync + 'static + Any,
     E: Send + 'static>
@@ -26,8 +26,11 @@ impl<M: Copy + Send + Sync + 'static + Any,
         }
     }
 
+    fn receive_system_message(&self, _: SystemMessage) {
+        panic!("Tried to send a SystemMessage to an Actor");
+    }
+
     fn handle(&self) {
-        panic!("Tried to call handle on a Complete");
     }
 }
 

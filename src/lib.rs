@@ -10,7 +10,7 @@
         trivial_numeric_casts,
         unused_import_braces,
         unused_qualifications)]
-#![deny(warnings)]
+//#![deny(warnings)]
 
 extern crate eventual;
 
@@ -18,7 +18,7 @@ pub use self::actors::Actor;
 pub use self::actor_ref::{ActorRef, CanReceive};
 pub use self::actor_system::ActorSystem;
 pub use self::props::Props;
-pub use self::actor_cell::{ActorCell, ActorContext};
+pub use self::actor_cell::{ActorCell, ActorContext, SystemMessage};
 
 /// Module for the Actor trait.
 pub mod actors;

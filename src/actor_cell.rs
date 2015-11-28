@@ -4,6 +4,10 @@ use std::sync::{Arc, Mutex};
 
 use {Actor, ActorRef, ActorSystem, CanReceive, Props};
 
+pub enum SystemMessage {
+    Restart,
+}
+
 /// Main interface for accessing the main Actor information (system, mailbox, sender, props...).
 pub struct ActorCell<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> {
     // We have an inner structure in order to be able to generate new ActorCell easily.
@@ -30,6 +34,12 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
     /// Puts a message with its sender in the Actor's mailbox and schedules the Actor.
     pub fn receive_message(&self, message: M, sender: Arc<CanReceive >) {
         self.inner_cell.receive_message(message, sender);
+        self.inner_cell.system.enqueue_actor(self.actor_ref());
+    }
+
+    /// Puts a system message with its sender in the Actor's system mailbox and schedules the Actor.
+    pub fn receive_system_message(&self, system_message: SystemMessage) {
+        self.inner_cell.receive_system_message(system_message);
         self.inner_cell.system.enqueue_actor(self.actor_ref());
     }
 
@@ -83,7 +93,8 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
 struct InnerActorCell<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> {
     actor: Mutex<A>,
     mailbox: Mutex<VecDeque<Envelope<M>>>,
-    _props: Props<Args, M, A>,
+    system_mailbox: Mutex<VecDeque<SystemMessage>>,
+    props: Props<Args, M, A>,
     system: ActorSystem,
     current_sender: Mutex<Option<Arc<CanReceive >>>,
     busy: Mutex<()>,
@@ -100,7 +111,8 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
         InnerActorCell {
             actor: Mutex::new(actor),
             mailbox: Mutex::new(VecDeque::new()),
-            _props: props,
+            system_mailbox: Mutex::new(VecDeque::new()),
+            props: props,
             system: system,
             current_sender: Mutex::new(None),
             busy: Mutex::new(()),
@@ -112,11 +124,26 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
         self.mailbox.lock().unwrap().push_back(envelope);
     }
 
-    fn receive_message(&self, message: M, sender: Arc<CanReceive >) {
+    fn receive_message(&self, message: M, sender: Arc<CanReceive>) {
         self.receive_envelope(Envelope{message: message, sender: sender});
     }
 
+    fn receive_system_message(&self, system_message: SystemMessage) {
+        self.system_mailbox.lock().unwrap().push_back(system_message);
+    }
+
     fn handle_envelope(&self, context: ActorCell<Args, M, A>) {
+        // System messages are handled first, so that we can restart an actor if he failed without
+        // loosing the messages in the mailbox.
+        // NOTE: this does not break the fact that messages sent by the same actor are treated in
+        // the order they are sent (if all to the same target actor), as system messages must not
+        // be sent by other actors by the user.
+        if let Some(message) = self.system_mailbox.lock().unwrap().pop_front() {
+            match message {
+                SystemMessage::Restart => self.restart(),
+            }
+            return;
+        }
         let envelope = match self.mailbox.lock().unwrap().pop_front() {
             Some(envelope) => envelope,
             None => {
@@ -136,4 +163,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
         }
     }
 
+    fn restart(&self) {
+        *self.actor.lock().unwrap() = self.props.create();
+    }
 }

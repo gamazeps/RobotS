@@ -22,7 +22,7 @@ pub struct ActorSystem {
     // TODO(find a way to have a clean way to separate system and user threads).
     consumer_threads: Arc<Mutex<Vec<ConsumerThread>>>,
     // TODO(gamazeps): Have a CanHandle Trait for that.
-    actors_queue: Arc<Mutex<VecDeque<Arc<CanReceive >>>>,
+    actors_queue: Arc<Mutex<VecDeque<Arc<CanReceive>>>>,
     cthulhu: Arc<Cthulhu>,
     user_actor: Mutex<Option<UserActorRef>>,
 }
@@ -67,6 +67,10 @@ impl ActorSystem {
     pub fn spawn_thread(&self) {
         let (tx, rx) = channel();
         let thread_system = self.clone();
+        // When we have the two threads, use one to monitoring the other one (as thought before).
+        // In order to know which actor failed, use a channel to transmit the CanReceive that
+        // caused the failure.
+        // Last correct returned value by the receiver wil be the actor that panicked.
         let handle = thread::spawn(move || {
             loop {
                 // If we received a () we kill the thread.
