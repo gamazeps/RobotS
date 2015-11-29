@@ -5,11 +5,23 @@ use ActorCell;
 /// This is the trait to implement to become an Actor.
 ///
 /// Normaly only the receive method has to be implemented.
-pub trait Actor<M: Copy + Send + Sync + 'static + Any>: Send + Sized {
+pub trait Actor<M: Copy + Send + Sync + 'static + Any>: Send +  Sync + Sized {
 
     /// Single method to be implemented for an Actor.
     ///
     /// This defines the Actor's behaviour.
+    ///
+    /// Note that Actors have to be both Send AND Sync:
+    ///   - The Send is obvious as they go around threads.
+    ///   - The Sync is needed because of Actor failure handling.  
+    ///   Actors need to be stored in InnerActorCell in a container that offers inner mutability
+    ///   because of the ability to restart them (we replace the old failed actor with a new clean
+    ///   one).  
+    ///   Two container offer that in Sync way, `RwLock` and `Mutex`. `Mutex` would give Sync to
+    ///   the Actor, but if a thread fails while holding a lock, the mutex becomes poisoned and
+    ///   there is no way to unpoison him, so we can't use one. We thus have to use an RwLock, but
+    ///   it does not gives the Sync trait for free, the contained object needs to be Sync itself,
+    ///   thus forcing Actors to be Sync.
     ///
     /// extern crate robots;
     /// use robots::{Actor, ActorCell, Message};

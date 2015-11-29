@@ -4,8 +4,7 @@
 
 extern crate robots;
 
-use std::cell::Cell;
-use std::sync::{Arc};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use robots::{Actor, ActorSystem, ActorCell, ActorContext, CanReceive, Props, SystemMessage};
@@ -34,32 +33,34 @@ impl Factorial {
 enum InternalStateMessage {
     Set(u32),
     Get,
+    Panic,
 }
 
 /// Basic factorial.
 struct InternalState {
-    counter: Cell<u32>
+    counter: Mutex<u32>
 }
 
 impl Actor<InternalStateMessage> for InternalState {
     fn receive<Args: Copy + Sync + Send + 'static>(&self, message: InternalStateMessage, _context: ActorCell<Args, InternalStateMessage, InternalState>) {
         match message {
-            InternalStateMessage::Get => println!("internal state: {}", self.counter.get()),
-            InternalStateMessage::Set(num) => self.counter.set(num),
+            InternalStateMessage::Get => println!("internal state: {}", *self.counter.lock().unwrap()),
+            InternalStateMessage::Set(num) => *self.counter.lock().unwrap() = num,
+            InternalStateMessage::Panic => panic!("actor panicked"),
         }
     }
 }
 
 impl InternalState {
     fn new(count: u32) -> InternalState {
-        InternalState { counter: Cell::new(count) }
+        InternalState { counter: Mutex::new(count) }
     }
 }
 
 fn main() {
 
     let actor_system = ActorSystem::new("test".to_owned());
-    actor_system.spawn_threads(1);
+    actor_system.spawn_threads(2);
 
     let props_factorial = Props::new(Arc::new(Factorial::new), ());
     let factorial_actor_ref = actor_system.actor_of(props_factorial.clone());
@@ -78,9 +79,14 @@ fn main() {
     std::thread::sleep(Duration::from_millis(1));
     restarted_actor_ref.receive_system_message(SystemMessage::Restart);
     factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Get);
+    factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Set(7));
+    factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Get);
+    factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Panic);
+    std::thread::sleep(Duration::from_millis(1));
+    factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Get);
 
     std::thread::sleep(Duration::from_millis(3));
-    actor_system.terminate_threads(1);
+    actor_system.terminate_threads(2);
     std::thread::sleep(Duration::from_millis(1));
 
     println!("Hello world!");

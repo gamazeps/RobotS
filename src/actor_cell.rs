@@ -1,14 +1,17 @@
 use std::any::Any;
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 use {Actor, ActorRef, ActorSystem, CanReceive, Props};
 
 /// Special messages issued by the actor system.
-#[derive(Copy, Clone)]
+#[derive(Clone)]
 pub enum SystemMessage {
     /// Restarts the actor by repa=lacing it with a new version created with its Props.
     Restart,
+
+    /// Tells an actor that its child failed.
+    Failure(Arc<CanReceive>),
 }
 
 /// Main interface for accessing the main Actor information (system, mailbox, sender, props...).
@@ -93,15 +96,43 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
     }
 }
 
+struct Failsafe {
+    father: Arc<CanReceive>,
+    child: Arc<CanReceive>,
+    active: bool,
+}
+
+impl Failsafe {
+    fn new(father: Arc<CanReceive>, child: Arc<CanReceive>) -> Failsafe {
+        Failsafe {
+            father: father,
+            child: child,
+            active: true,
+        }
+    }
+
+    fn cancel(mut self) {
+        self.active = false;
+    }
+}
+
+impl Drop for Failsafe {
+    fn drop(&mut self) {
+        if self.active {
+            self.father.receive_system_message(SystemMessage::Failure(self.child.clone()));
+        }
+    }
+}
+
 struct InnerActorCell<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> {
-    actor: Mutex<A>,
+    actor: RwLock<A>,
     mailbox: Mutex<VecDeque<Envelope<M>>>,
     system_mailbox: Mutex<VecDeque<SystemMessage>>,
     props: Props<Args, M, A>,
     system: ActorSystem,
     current_sender: Mutex<Option<Arc<CanReceive >>>,
     busy: Mutex<()>,
-    _father: Arc<CanReceive>,
+    father: Arc<CanReceive>,
 }
 
 struct Envelope<M> {
@@ -112,14 +143,14 @@ struct Envelope<M> {
 impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> InnerActorCell<Args, M, A> {
     fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem, father: Arc<CanReceive>) -> InnerActorCell<Args, M, A> {
         InnerActorCell {
-            actor: Mutex::new(actor),
+            actor: RwLock::new(actor),
             mailbox: Mutex::new(VecDeque::new()),
             system_mailbox: Mutex::new(VecDeque::new()),
             props: props,
             system: system,
             current_sender: Mutex::new(None),
             busy: Mutex::new(()),
-            _father: father,
+            father: father,
         }
     }
 
@@ -136,6 +167,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
     }
 
     fn handle_envelope(&self, context: ActorCell<Args, M, A>) {
+        let failsafe = Failsafe::new(self.father.clone(), Arc::new(context.actor_ref()));
         // System messages are handled first, so that we can restart an actor if he failed without
         // loosing the messages in the mailbox.
         // NOTE: This does not break the fact that messages sent by the same actor are treated in
@@ -144,13 +176,16 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
         if let Some(message) = self.system_mailbox.lock().unwrap().pop_front() {
             match message {
                 SystemMessage::Restart => self.restart(),
+                SystemMessage::Failure(actor) => actor.receive_system_message(SystemMessage::Restart),
             }
+            failsafe.cancel();
             return;
         }
         let envelope = match self.mailbox.lock().unwrap().pop_front() {
             Some(envelope) => envelope,
             None => {
                 println!("no envelope in mailbox");
+                failsafe.cancel();
                 return;
             }
         };
@@ -161,12 +196,14 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
             *current_sender = Some(envelope.sender.clone());
         };
         {
-            let actor = self.actor.lock().unwrap();
+            let actor = self.actor.read().unwrap();
             actor.receive(envelope.message, context);
         }
+        failsafe.cancel();
     }
 
     fn restart(&self) {
-        *self.actor.lock().unwrap() = self.props.create();
+        println!("restarting");
+        *self.actor.write().unwrap() = self.props.create();
     }
 }
