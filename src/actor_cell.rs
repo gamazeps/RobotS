@@ -135,7 +135,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
     fn handle_envelope(&self, context: ActorCell<Args, M, A>) {
         // System messages are handled first, so that we can restart an actor if he failed without
         // loosing the messages in the mailbox.
-        // NOTE: this does not break the fact that messages sent by the same actor are treated in
+        // NOTE: This does not break the fact that messages sent by the same actor are treated in
         // the order they are sent (if all to the same target actor), as system messages must not
         // be sent by other actors by the user.
         if let Some(message) = self.system_mailbox.lock().unwrap().pop_front() {

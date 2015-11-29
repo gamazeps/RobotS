@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender, TryRecvError};
 use std::thread;
 
-use {Actor, ActorRef, CanReceive, Props};
+use {Actor, ActorRef, CanReceive, Props, SystemMessage};
 use cthulhu::Cthulhu;
 use user_actor::UserActorRef;
 
@@ -13,9 +13,6 @@ type ConsumerThread = (thread::JoinHandle<()>, Sender<()>);
 
 /// ActorSystem, the struct that manages the creation of everything and that everything does what
 /// it is supposed to do.
-///
-/// NOTE: It currently holds the consumer threads and do not create the user, system and root
-/// actors.
 pub struct ActorSystem {
     name: Arc<String>,
     // For now we will have the worker pool in the system.
@@ -71,20 +68,41 @@ impl ActorSystem {
         // In order to know which actor failed, use a channel to transmit the CanReceive that
         // caused the failure.
         // Last correct returned value by the receiver wil be the actor that panicked.
+        let rx = Arc::new(rx);
         let handle = thread::spawn(move || {
+            // Here we beed to give it an initial value, so Cthulhu it is.
+            let mut current_actor: Arc<Mutex<Arc<CanReceive>>> = Arc::new(Mutex::new(self.cthulhu.clone()));
+            // Keep on tryieng relaunching threads as they fail.
             loop {
-                // If we received a () we kill the thread.
-                match rx.try_recv() {
-                    Ok(_) | Err(TryRecvError::Disconnected) => {
-                        println!("Terminating a consumer thread.");
-                        break;
-                    },
-                    Err(TryRecvError::Empty) => {}
-                };
-                // Else we try to prcess a message.
-                let actor_ref = {thread_system.actors_queue.lock().unwrap().pop_front()};
-                for actor in actor_ref.iter() {
-                    actor.handle();
+                let inner_system = thread_system.clone();
+                let inner_rx = rx.clone();
+                let result = thread::spawn(move || {
+                    loop {
+                        // If we received a () we kill the thread.
+                        match inner_rx.try_recv() {
+                            Ok(_) | Err(TryRecvError::Disconnected) => {
+                                println!("Terminating a consumer thread.");
+                                break;
+                            },
+                            Err(TryRecvError::Empty) => {}
+                        };
+                        // Else we try to prcess a message.
+                        let actor_ref = {inner_system.actors_queue.lock().unwrap().pop_front()};
+                        for actor in actor_ref.iter() {
+                            *current_actor.lock().unwrap() = actor.clone();
+                            actor.handle();
+                        }
+                    }
+                });
+
+                let result = result.join();
+
+                match result {
+                    // If an actor failed we relaunch it and spawn a thread again.
+                    Err(_) => current_actor.lock().unwrap()
+                                           .receive_system_message(SystemMessage::Restart),
+                    // Otherwise we asked the thread to shut down normally.
+                    Ok(_) => break,
                 }
             }
         });
