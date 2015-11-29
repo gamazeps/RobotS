@@ -4,7 +4,10 @@ use std::sync::{Arc, Mutex};
 
 use {Actor, ActorRef, ActorSystem, CanReceive, Props};
 
+/// Special messages issued by the actor system.
+#[derive(Copy, Clone)]
 pub enum SystemMessage {
+    /// Restarts the actor by repa=lacing it with a new version created with its Props.
     Restart,
 }
 

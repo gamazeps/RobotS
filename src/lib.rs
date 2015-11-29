@@ -10,7 +10,7 @@
         trivial_numeric_casts,
         unused_import_braces,
         unused_qualifications)]
-//#![deny(warnings)]
+#![deny(warnings)]
 
 extern crate eventual;
 
@@ -41,4 +41,5 @@ pub mod ask;
 /// Module containing the original actor.
 mod cthulhu;
 
+/// Module containing the user actor, parent of all user generated actors.
 mod user_actor;
