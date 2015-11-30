@@ -41,22 +41,20 @@ pub trait Actor<M: Copy + Send + Sync + 'static + Any>: Send +  Sync + Sized {
 
     /// Method called before the Actor is started.
     fn pre_start(&self) {
-        panic!("Not implemented");
     }
 
     /// Method called after the Actor is stopped.
     fn post_stop(&self) {
-        panic!("Not implemented");
     }
 
     /// Method called before the Actor is restarted.
     fn pre_restart(&self) {
-        panic!("Not implemented");
+        self.post_stop();
     }
 
     /// Method called after the Actor is restarted.
     fn post_restart(&self) {
-        panic!("Not implemented");
+        self.pre_start();
     }
 }
 

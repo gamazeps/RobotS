@@ -7,7 +7,7 @@ extern crate robots;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use robots::{Actor, ActorSystem, ActorCell, ActorContext, CanReceive, Props, SystemMessage};
+use robots::{Actor, ActorSystem, ActorCell, ActorContext, Props};
 
 /// Basic factorial.
 struct Factorial;
@@ -77,10 +77,6 @@ fn main() {
     factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Get);
 
     std::thread::sleep(Duration::from_millis(1));
-    restarted_actor_ref.receive_system_message(SystemMessage::Restart);
-    factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Get);
-    factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Set(7));
-    factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Get);
     factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Panic);
     std::thread::sleep(Duration::from_millis(1));
     factorial_actor_ref.tell_to(restarted_actor_ref.clone(), InternalStateMessage::Get);

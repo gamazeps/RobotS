@@ -10,6 +10,9 @@ pub enum SystemMessage {
     /// Restarts the actor by repa=lacing it with a new version created with its Props.
     Restart,
 
+    /// Makes the actor launch its initialisation.
+    Start,
+
     /// Tells an actor that its child failed.
     Failure(Arc<CanReceive>),
 }
@@ -84,7 +87,9 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
             inner_cell: Arc::new(InnerActorCell::new(actor, props, self.inner_cell.system.clone(),
                                                      Arc::new(self.actor_ref()))),
         };
-        ActorRef::with_cell(actor_cell)
+        let child = ActorRef::with_cell(actor_cell);
+        child.receive_system_message(SystemMessage::Start);
+        child
     }
 
     fn tell<Message: Copy + Send + Sync + 'static + Any, T: CanReceive>(&self, to: T, message: Message) {
@@ -167,6 +172,8 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
     }
 
     fn handle_envelope(&self, context: ActorCell<Args, M, A>) {
+        // Now we do not want users to be able to touch current_sender while the actor is busy.
+        let _lock = self.busy.lock();
         let failsafe = Failsafe::new(self.father.clone(), Arc::new(context.actor_ref()));
         // System messages are handled first, so that we can restart an actor if he failed without
         // loosing the messages in the mailbox.
@@ -176,6 +183,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
         if let Some(message) = self.system_mailbox.lock().unwrap().pop_front() {
             match message {
                 SystemMessage::Restart => self.restart(),
+                SystemMessage::Start => self.start(),
                 SystemMessage::Failure(actor) => actor.receive_system_message(SystemMessage::Restart),
             }
             failsafe.cancel();
@@ -184,13 +192,10 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
         let envelope = match self.mailbox.lock().unwrap().pop_front() {
             Some(envelope) => envelope,
             None => {
-                println!("no envelope in mailbox");
                 failsafe.cancel();
                 return;
             }
         };
-        // Now we do not want users to be able to touch current_sender while the actor is busy.
-        let _lock = self.busy.lock();
         {
             let mut current_sender = self.current_sender.lock().unwrap();
             *current_sender = Some(envelope.sender.clone());
@@ -202,8 +207,14 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
         failsafe.cancel();
     }
 
+    fn start(&self) {
+        self.actor.write().unwrap().pre_start();
+    }
+
     fn restart(&self) {
-        println!("restarting");
-        *self.actor.write().unwrap() = self.props.create();
+        let mut actor = self.actor.write().unwrap();
+        actor.pre_restart();
+        *actor = self.props.create();
+        actor.post_restart();
     }
 }

@@ -11,7 +11,7 @@ use Actor;
 /// It is also thread safe, and thus we can respawn an Actor across different threads.
 pub struct Props<Args: Copy + Sync, M: Copy + Send + Sync + 'static + Any, A: Actor<M>> {
     _phantom_message: PhantomData<M>,
-    creator: Arc<Fn(Args) -> A  + Sync + Send>,
+    creator: Arc<Fn(Args) -> A + Sync + Send>,
     args: Args,
 }
 
