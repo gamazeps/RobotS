@@ -2,7 +2,7 @@ use std::any::Any;
 use std::process::exit;
 use std::sync::Arc;
 
-use {CanReceive, SystemMessage};
+use actors::{CanReceive, SystemMessage};
 
 /// Cthulhu is the original Actor in the Actor Hierarchy (used as the father of the root actor).
 /// Naturaly waking Cthulhu up (by sending him a message) will wreck havoc on your application.

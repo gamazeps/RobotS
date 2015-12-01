@@ -7,7 +7,7 @@ extern crate robots;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use robots::{Actor, ActorSystem, ActorCell, ActorContext, Props, Message};
+use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props, Message};
 
 /// Basic factorial.
 struct Factorial;

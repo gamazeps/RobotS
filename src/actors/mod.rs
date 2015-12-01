@@ -1,6 +1,31 @@
 use std::any::Any;
 
-use ActorCell;
+pub use self::actor_cell::{ActorCell, ActorContext, SystemMessage};
+pub use self::actor_ref::{CanReceive, ActorRef};
+pub use self::actor_system::ActorSystem;
+pub use self::props::Props;
+
+/// Module for ActorRef, what is used for manipulating Actors.
+pub mod actor_ref;
+
+/// Module for the ActorSystem.
+pub mod actor_system;
+
+/// Module for Actor factories (Props).
+pub mod props;
+
+/// Module with the internals of Actors.
+pub mod actor_cell;
+
+/// Module allowing the use of the ask pattern.
+pub mod ask;
+
+/// Module containing the original actor.
+mod cthulhu;
+
+/// Module containing the user actor, parent of all user generated actors.
+mod user_actor;
+
 
 /// Trait to be implemented by messages and args, this is automatically given if a struct is
 /// already `Copy + Send + Sync + 'static + Any`.

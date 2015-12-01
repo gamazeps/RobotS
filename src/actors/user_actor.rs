@@ -1,8 +1,17 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use {Actor, ActorCell, ActorContext, ActorRef, ActorSystem, CanReceive, Message, Props, SystemMessage};
-use cthulhu::Cthulhu;
+use actors::{
+    Actor,
+    ActorContext,
+    ActorRef,
+    ActorSystem,
+    CanReceive,
+    Message,
+    Props,
+    SystemMessage};
+use actors::actor_cell::ActorCell;
+use actors::cthulhu::Cthulhu;
 
 pub struct UserActorRef {
     actor_cell: ActorCell<(), (), InternalUserActor>,

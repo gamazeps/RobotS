@@ -1,7 +1,8 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use {Actor, ActorCell, ActorContext, Message, SystemMessage};
+use actors::{Actor, ActorContext, Message, SystemMessage};
+use actors::actor_cell::ActorCell;
 
 /// This is a reference to an Actor and what is supposed to be manipulated by the user.
 ///

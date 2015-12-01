@@ -1,9 +1,12 @@
+extern crate eventual;
+
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 
-use eventual::{Future, Complete};
+use self::eventual::{Future, Complete};
 
-use {Actor, ActorCell, ActorContext, CanReceive, Message, SystemMessage};
+use actors::{Actor, ActorContext, CanReceive, Message, SystemMessage};
+use actors::actor_cell::ActorCell;
 
 impl<M: Message,
     E: Send + 'static>

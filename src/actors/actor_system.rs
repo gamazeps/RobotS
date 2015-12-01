@@ -3,9 +3,9 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 
-use {Actor, ActorRef, CanReceive, Message, Props};
-use cthulhu::Cthulhu;
-use user_actor::UserActorRef;
+use actors::{Actor, ActorRef, CanReceive, Message, Props};
+use actors::cthulhu::Cthulhu;
+use actors::user_actor::UserActorRef;
 
 struct Relauncher {
     actor_system:  ActorSystem,

@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock};
 
-use {Actor, ActorRef, ActorSystem, CanReceive, Message, Props};
+use actors::{Actor, ActorRef, ActorSystem, CanReceive, Message, Props};
 
 /// Special messages issued by the actor system.
 #[derive(Clone)]
