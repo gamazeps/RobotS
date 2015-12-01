@@ -3,9 +3,9 @@ use std::sync::{Arc, Mutex};
 
 use eventual::{Future, Complete};
 
-use {Actor, ActorCell, ActorContext, CanReceive, SystemMessage};
+use {Actor, ActorCell, ActorContext, CanReceive, Message, SystemMessage};
 
-impl<M: Copy + Send + Sync + 'static + Any,
+impl<M: Message,
     E: Send + 'static>
     CanReceive for CompleteRef<M, E> {
     fn receive(&self, message: Box<Any>, _: Arc<CanReceive >) {
@@ -39,10 +39,7 @@ struct CompleteRef<T: Send + 'static, E: Send + 'static> {
 }
 
 /// Trait to implement for having the ask method.
-pub trait AskPattern<Args: Copy + Send + Sync + 'static,
-    M: Copy + Send + Sync + 'static + Any,
-    A: Actor<M> + 'static,
-    E: Send + 'static>: ActorContext<Args, M, A> {
+pub trait AskPattern<Args: Message, M: Message, A: Actor<M> + 'static, E: Send + 'static>: ActorContext<Args, M, A> {
     /// Sends a request to an Actor and stores the potential result in a Future.
     ///
     /// The Future will be completed with the value the actor will answer with.
@@ -50,8 +47,8 @@ pub trait AskPattern<Args: Copy + Send + Sync + 'static,
         -> Future<M, E>;
 }
 
-impl<Args: Copy + Send + Sync + 'static,
-M: Copy + Send + Sync + 'static + Any,
+impl<Args: Message,
+M: Message,
 A: Actor<M> + 'static,
 E: Send + 'static>
 AskPattern<Args, M, A, E> for ActorCell<Args, M, A> {

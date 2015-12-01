@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use {Actor, ActorCell, ActorContext, ActorRef, ActorSystem, CanReceive, Props, SystemMessage};
+use {Actor, ActorCell, ActorContext, ActorRef, ActorSystem, CanReceive, Message, Props, SystemMessage};
 use cthulhu::Cthulhu;
 
 pub struct UserActorRef {
@@ -18,7 +18,7 @@ impl UserActorRef {
     }
 
     /// Creates an actor for the user.
-    pub fn actor_of<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
+    pub fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
         self.actor_cell.actor_of(props)
     }
 }
@@ -58,5 +58,5 @@ impl InternalUserActor {
 
 impl Actor<()> for InternalUserActor {
     // The recieve function is currently a dummy.
-    fn receive<Args: Copy + Sync + Send + 'static>(&self, _message: (), _context: ActorCell<Args, (), InternalUserActor>) {}
+    fn receive<Args: Message>(&self, _message: (), _context: ActorCell<Args, (), InternalUserActor>) {}
 }

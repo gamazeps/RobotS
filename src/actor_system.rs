@@ -1,10 +1,9 @@
-use std::any::Any;
 use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 
-use {Actor, ActorRef, CanReceive, Props};
+use {Actor, ActorRef, CanReceive, Message, Props};
 use cthulhu::Cthulhu;
 use user_actor::UserActorRef;
 
@@ -76,7 +75,7 @@ impl ActorSystem {
     }
 
     /// Spawns an Actor of type A, created using the Props given.
-    pub fn actor_of<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
+    pub fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
         let user_actor = self.user_actor.lock().unwrap().clone();
         match user_actor {
             Some(user_actor) => user_actor.actor_of(props),
@@ -85,7 +84,7 @@ impl ActorSystem {
     }
 
     /// Enqueues the given Actor on the queue of Actors with something to handle.
-    pub fn enqueue_actor<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static>(&self, actor_ref: ActorRef<Args, M, A>) {
+    pub fn enqueue_actor<Args: Message, M: Message, A: Actor<M> + 'static>(&self, actor_ref: ActorRef<Args, M, A>) {
         match self.actors_queue_sender.lock().unwrap().send(Arc::new(actor_ref)) {
             Ok(_) => return,
             Err(_) => {

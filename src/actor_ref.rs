@@ -1,24 +1,23 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use Actor;
-use {ActorCell, ActorContext, SystemMessage};
+use {Actor, ActorCell, ActorContext, Message, SystemMessage};
 
 /// This is a reference to an Actor and what is supposed to be manipulated by the user.
 ///
 /// The only thing it can do is send and receive messages (according to the actor model in defined
 /// by Hewitt).
-pub struct ActorRef<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> {
+pub struct ActorRef<Args: Message, M: Message, A: Actor<M> + 'static> {
     actor_cell: ActorCell<Args, M, A>,
 }
 
-impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> Clone for ActorRef<Args, M, A> {
+impl<Args: Message, M: Message, A: Actor<M> + 'static> Clone for ActorRef<Args, M, A> {
     fn clone(&self) -> ActorRef<Args, M, A> {
         ActorRef::with_cell(self.actor_cell.clone())
     }
 }
 
-impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> ActorRef<Args, M, A> {
+impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorRef<Args, M, A> {
     /// Creates an ActorRef<Args, M, A> with the given ActorCell<Args, M, A>.
     pub fn with_cell(cell: ActorCell<Args, M, A>) -> ActorRef<Args, M, A> {
         ActorRef {
@@ -27,7 +26,7 @@ impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, 
     }
 
     /// Sends a Message to a CanReceive<Message>.
-    pub fn tell_to<Message: Copy + Send + Sync + 'static + Any, T: CanReceive>(&self, to: T, message: Message) {
+    pub fn tell_to<MessageTo: Message, T: CanReceive>(&self, to: T, message: MessageTo) {
         self.actor_cell.tell(to, message);
     }
 }
@@ -47,7 +46,7 @@ pub trait CanReceive: Send + Sync {
     fn handle(&self);
 }
 
-impl<Args: Copy + Send + Sync + 'static, M: Copy + Send + Sync + 'static + Any, A: Actor<M> + 'static> CanReceive for ActorRef<Args, M, A> {
+impl<Args: Message, M: Message, A: Actor<M> + 'static> CanReceive for ActorRef<Args, M, A> {
     fn receive(&self, message: Box<Any>, sender: Arc<CanReceive>) {
         let cast = message.downcast::<M>();
         match cast {

@@ -2,10 +2,15 @@ use std::any::Any;
 
 use ActorCell;
 
+/// Trait to be implemented by messages and args, this is automatically given if a struct is
+/// already `Copy + Send + Sync + 'static + Any`.
+pub trait Message: Copy + Send + Sync + 'static + Any {}
+impl<T> Message for T where T: Copy + Send + Sync + 'static + Any {}
+
 /// This is the trait to implement to become an Actor.
 ///
 /// Normaly only the receive method has to be implemented.
-pub trait Actor<M: Copy + Send + Sync + 'static + Any>: Send +  Sync + Sized {
+pub trait Actor<M: Message>: Send + Sync + Sized {
 
     /// Single method to be implemented for an Actor.
     ///
@@ -29,7 +34,7 @@ pub trait Actor<M: Copy + Send + Sync + 'static + Any>: Send +  Sync + Sized {
     /// struct MyActor;
     ///
     /// impl Actor for MyActor {
-    ///     fn receive<Args: Copy + Send + Sync + 'static>
+    ///     fn receive<Args: Message>
     ///         (&self, message: Message, _context: ActorCell<Args, MyActor>) {
     ///         match message {
     ///             Message::Dummy => context.tell(context.sender(), Message::Dummy),
@@ -37,7 +42,7 @@ pub trait Actor<M: Copy + Send + Sync + 'static + Any>: Send +  Sync + Sized {
     ///         }
     ///     }
     /// }
-    fn receive<Args: Copy + Send + Sync + 'static>(&self, message: M, context: ActorCell<Args, M, Self>);
+    fn receive<Args: Message>(&self, message: M, context: ActorCell<Args, M, Self>);
 
     /// Method called before the Actor is started.
     fn pre_start(&self) {

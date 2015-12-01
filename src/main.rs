@@ -7,13 +7,13 @@ extern crate robots;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use robots::{Actor, ActorSystem, ActorCell, ActorContext, Props};
+use robots::{Actor, ActorSystem, ActorCell, ActorContext, Props, Message};
 
 /// Basic factorial.
 struct Factorial;
 
 impl Actor<(u32, u32)> for Factorial {
-    fn receive<Args: Copy + Sync + Send + 'static>(&self, message: (u32, u32), context: ActorCell<Args, (u32, u32), Factorial>) {
+    fn receive<Args: Message>(&self, message: (u32, u32), context: ActorCell<Args, (u32, u32), Factorial>) {
         let (i, j) = message;
         if i == 0 {
             println!("factorial: {}", j);
@@ -42,7 +42,7 @@ struct InternalState {
 }
 
 impl Actor<InternalStateMessage> for InternalState {
-    fn receive<Args: Copy + Sync + Send + 'static>(&self, message: InternalStateMessage, _context: ActorCell<Args, InternalStateMessage, InternalState>) {
+    fn receive<Args: Message>(&self, message: InternalStateMessage, _context: ActorCell<Args, InternalStateMessage, InternalState>) {
         match message {
             InternalStateMessage::Get => println!("internal state: {}", *self.counter.lock().unwrap()),
             InternalStateMessage::Set(num) => *self.counter.lock().unwrap() = num,
