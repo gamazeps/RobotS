@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, Mutex, RwLock, Weak};
 
 use actors::{Actor, ActorRef, ActorSystem, CanReceive, Message, Props};
 
@@ -16,16 +16,24 @@ pub enum SystemMessage {
     Failure(Arc<CanReceive>),
 }
 
+enum Ref<T> {
+    StrongRef(Arc<T>),
+    WeakRef(Weak<T>),
+}
+
 /// Main interface for accessing the main Actor information (system, mailbox, sender, props...).
 pub struct ActorCell<Args: Message, M: Message, A: Actor<M> + 'static> {
     // We have an inner structure in order to be able to generate new ActorCell easily.
-    inner_cell: Arc<InnerActorCell<Args, M, A>>,
+    inner_cell: Ref<InnerActorCell<Args, M, A>>,
 }
 
 impl<Args: Message, M: Message, A: Actor<M>> Clone for ActorCell<Args, M, A> {
     fn clone(&self) -> ActorCell<Args, M, A> {
         ActorCell {
-            inner_cell: self.inner_cell.clone()
+            inner_cell: Ref::WeakRef(match self.inner_cell {
+                Ref::StrongRef(inner) => Arc::downgrade(&inner),
+                Ref::WeakRef(inner) => inner.clone(),
+            })
         }
     }
 }
@@ -35,14 +43,24 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorCell<Args, M, A> {
     /// Creates a new ActorCell.
     pub fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem, father: Arc<CanReceive>) -> ActorCell<Args, M, A> {
         ActorCell {
-            inner_cell: Arc::new(InnerActorCell::new(actor, props, system, father)),
+            inner_cell: Ref::StrongRef(Arc::new(InnerActorCell::new(actor, props, system, father))),
         }
     }
 
     /// Puts a message with its sender in the Actor's mailbox and schedules the Actor.
     pub fn receive_message(&self, message: M, sender: Arc<CanReceive >) {
-        self.inner_cell.receive_message(message, sender);
-        self.inner_cell.system.enqueue_actor(self.actor_ref());
+        let inner = match self.inner_cell {
+            Ref::StrongRef(inner) => inner,
+            Ref::WeakRef(inner) => match inner.upgrade() {
+                Some(inner) => inner,
+                None => {
+                    println!("A message was send to a ref to a stopped actor");
+                    return;
+                },
+            }
+        };
+        inner.receive_message(message, sender);
+        inner.system.enqueue_actor(self.actor_ref());
     }
 
     /// Puts a system message with its sender in the Actor's system mailbox and schedules the Actor.
@@ -89,8 +107,8 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
     fn actor_of<ArgBis: Message, MBis: Message, ABis: Actor<MBis> + 'static>(&self, props: Props<ArgBis, MBis, ABis>) -> ActorRef<ArgBis, MBis, ABis> {
         let actor = props.create();
         let actor_cell = ActorCell {
-            inner_cell: Arc::new(InnerActorCell::new(actor, props, self.inner_cell.system.clone(),
-                                                     Arc::new(self.actor_ref()))),
+            inner_cell: Ref::StrongRef(Arc::new(InnerActorCell::new(actor, props, self.inner_cell.system.clone(),
+                                                     Arc::new(self.actor_ref())))),
         };
         let child = ActorRef::with_cell(actor_cell);
         {self.inner_cell.children.lock().unwrap().push(Arc::new(child.clone()));}
@@ -239,3 +257,10 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A
         actor.post_restart();
     }
 }
+
+impl<Args: Message, M: Message, A: Actor<M> + 'static> Drop for InnerActorCell<Args, M, A> {
+    fn drop(&mut self) {
+        println!("dropped an actor cell");
+    }
+}
+
