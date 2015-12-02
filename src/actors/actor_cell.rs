@@ -73,6 +73,9 @@ pub trait ActorContext<Args: Message, M: Message, A: Actor<M> + 'static> {
 
     /// Returns an Arc to the sender of the message being handled.
     fn sender(&self) -> Arc<CanReceive >;
+
+    /// Children of the actor.
+    fn children(&self) -> Vec<Arc<CanReceive>>;
 }
 
 impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> for ActorCell<Args, M, A> {
@@ -87,6 +90,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
                                                      Arc::new(self.actor_ref()))),
         };
         let child = ActorRef::with_cell(actor_cell);
+        {self.inner_cell.children.lock().unwrap().push(Arc::new(child.clone()));}
         child.receive_system_message(SystemMessage::Start);
         child
     }
@@ -97,6 +101,10 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
 
     fn sender(&self) -> Arc<CanReceive > {
         self.inner_cell.current_sender.lock().unwrap().as_ref().unwrap().clone()
+    }
+
+    fn children(&self) -> Vec<Arc<CanReceive>> {
+        self.inner_cell.children.lock().unwrap().clone()
     }
 }
 
@@ -134,9 +142,10 @@ struct InnerActorCell<Args: Message, M: Message, A: Actor<M> + 'static> {
     system_mailbox: Mutex<VecDeque<SystemMessage>>,
     props: Props<Args, M, A>,
     system: ActorSystem,
-    current_sender: Mutex<Option<Arc<CanReceive >>>,
+    current_sender: Mutex<Option<Arc<CanReceive>>>,
     busy: Mutex<()>,
     father: Arc<CanReceive>,
+    children: Mutex<Vec<Arc<CanReceive>>>,
 }
 
 struct Envelope<M> {
@@ -155,6 +164,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A
             current_sender: Mutex::new(None),
             busy: Mutex::new(()),
             father: father,
+            children: Mutex::new(Vec::new()),
         }
     }
 
