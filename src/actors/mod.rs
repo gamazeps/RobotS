@@ -69,6 +69,13 @@ pub trait Actor<M: Message>: Send + Sync + Sized {
     /// }
     fn receive<Args: Message>(&self, message: M, context: ActorCell<Args, M, Self>);
 
+
+    /// Method called when a monitored actor is terminated.  
+    /// This is put in a separated method because match in rust must check all variations and we
+    /// chose not to force the user to make a case for terminations if it doesn not monitor any
+    /// actor.
+    fn receive_termination() { }
+
     /// Method called before the Actor is started.
     fn pre_start(&self) {
     }

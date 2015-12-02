@@ -76,6 +76,9 @@ pub trait ActorContext<Args: Message, M: Message, A: Actor<M> + 'static> {
 
     /// Children of the actor.
     fn children(&self) -> Vec<Arc<CanReceive>>;
+
+    /// Lifecycle monitoring, list of monitored actors.
+    fn monitoring(&self) -> Vec<Arc<CanReceive>>;
 }
 
 impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> for ActorCell<Args, M, A> {
@@ -91,6 +94,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
         };
         let child = ActorRef::with_cell(actor_cell);
         {self.inner_cell.children.lock().unwrap().push(Arc::new(child.clone()));}
+        {self.inner_cell.monitoring.lock().unwrap().push(Arc::new(child.clone()));}
         child.receive_system_message(SystemMessage::Start);
         child
     }
@@ -105,6 +109,10 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
 
     fn children(&self) -> Vec<Arc<CanReceive>> {
         self.inner_cell.children.lock().unwrap().clone()
+    }
+
+    fn monitoring(&self) -> Vec<Arc<CanReceive>> {
+        self.inner_cell.monitoring.lock().unwrap().clone()
     }
 }
 
@@ -146,6 +154,8 @@ struct InnerActorCell<Args: Message, M: Message, A: Actor<M> + 'static> {
     busy: Mutex<()>,
     father: Arc<CanReceive>,
     children: Mutex<Vec<Arc<CanReceive>>>,
+    monitoring: Mutex<Vec<Arc<CanReceive>>>,
+    _monitored: Mutex<Vec<Arc<CanReceive>>>,
 }
 
 struct Envelope<M> {
@@ -163,8 +173,10 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A
             system: system,
             current_sender: Mutex::new(None),
             busy: Mutex::new(()),
-            father: father,
+            father: father.clone(),
             children: Mutex::new(Vec::new()),
+            monitoring: Mutex::new(Vec::new()),
+            _monitored: Mutex::new(vec![father.clone()]),
         }
     }
 
