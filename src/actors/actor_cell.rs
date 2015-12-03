@@ -31,8 +31,8 @@ impl<Args: Message, M: Message, A: Actor<M>> Clone for ActorCell<Args, M, A> {
     fn clone(&self) -> ActorCell<Args, M, A> {
         ActorCell {
             inner_cell: Ref::WeakRef(match self.inner_cell {
-                Ref::StrongRef(inner) => Arc::downgrade(&inner),
-                Ref::WeakRef(inner) => inner.clone(),
+                Ref::StrongRef(ref inner) => Arc::downgrade(&inner),
+                Ref::WeakRef(ref inner) => inner.clone(),
             })
         }
     }
@@ -49,10 +49,11 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorCell<Args, M, A> {
 
     /// Puts a message with its sender in the Actor's mailbox and schedules the Actor.
     pub fn receive_message(&self, message: M, sender: Arc<CanReceive >) {
+        // TODO(gamazeps) make  a macro for this.
         let inner = match self.inner_cell {
-            Ref::StrongRef(inner) => inner,
-            Ref::WeakRef(inner) => match inner.upgrade() {
-                Some(inner) => inner,
+            Ref::StrongRef(ref inner) => inner.clone(),
+            Ref::WeakRef(ref inner) => match inner.upgrade() {
+                Some(inner) => inner.clone(),
                 None => {
                     println!("A message was send to a ref to a stopped actor");
                     return;
@@ -65,13 +66,35 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorCell<Args, M, A> {
 
     /// Puts a system message with its sender in the Actor's system mailbox and schedules the Actor.
     pub fn receive_system_message(&self, system_message: SystemMessage) {
-        self.inner_cell.receive_system_message(system_message);
-        self.inner_cell.system.enqueue_actor(self.actor_ref());
+        // TODO(gamazeps) make  a macro for this.
+        let inner = match self.inner_cell {
+            Ref::StrongRef(ref inner) => inner.clone(),
+            Ref::WeakRef(ref inner) => match inner.upgrade() {
+                Some(inner) => inner,
+                None => {
+                    println!("A message was send to a ref to a stopped actor");
+                    return;
+                },
+            }
+        };
+        inner.receive_system_message(system_message);
+        inner.system.enqueue_actor(self.actor_ref());
     }
 
     /// Makes the Actor handle an envelope in its mailbaox.
     pub fn handle_envelope(&self) {
-        self.inner_cell.handle_envelope(self.clone());
+        // TODO(gamazeps) make  a macro for this.
+        let inner = match self.inner_cell {
+            Ref::StrongRef(ref inner) => inner.clone(),
+            Ref::WeakRef(ref inner) => match inner.upgrade() {
+                Some(inner) => inner,
+                None => {
+                    println!("A message was send to a ref to a stopped actor");
+                    return;
+                },
+            }
+        };
+        inner.handle_envelope(self.clone());
     }
 }
 
@@ -106,13 +129,23 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
 
     fn actor_of<ArgBis: Message, MBis: Message, ABis: Actor<MBis> + 'static>(&self, props: Props<ArgBis, MBis, ABis>) -> ActorRef<ArgBis, MBis, ABis> {
         let actor = props.create();
+        let inner = match self.inner_cell {
+            Ref::StrongRef(ref inner) => inner.clone(),
+            Ref::WeakRef(ref inner) => match inner.upgrade() {
+                Some(inner) => inner.clone(),
+                None => {
+                    panic!("Tried to create an actor from the context of a no longer existing actor");
+                },
+            }
+        };
+        let inner_cell = InnerActorCell::new(actor, props, inner.system.clone(),
+                                             Arc::new(self.actor_ref()));
         let actor_cell = ActorCell {
-            inner_cell: Ref::StrongRef(Arc::new(InnerActorCell::new(actor, props, self.inner_cell.system.clone(),
-                                                     Arc::new(self.actor_ref())))),
+            inner_cell: Ref::StrongRef(Arc::new(inner_cell)),
         };
         let child = ActorRef::with_cell(actor_cell);
-        {self.inner_cell.children.lock().unwrap().push(Arc::new(child.clone()));}
-        {self.inner_cell.monitoring.lock().unwrap().push(Arc::new(child.clone()));}
+        {inner.children.lock().unwrap().push(Arc::new(child.clone()));}
+        {inner.monitoring.lock().unwrap().push(Arc::new(child.clone()));}
         child.receive_system_message(SystemMessage::Start);
         child
     }
@@ -122,15 +155,42 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
     }
 
     fn sender(&self) -> Arc<CanReceive > {
-        self.inner_cell.current_sender.lock().unwrap().as_ref().unwrap().clone()
+        let inner = match self.inner_cell {
+            Ref::StrongRef(ref inner) => inner.clone(),
+            Ref::WeakRef(ref inner) => match inner.upgrade() {
+                Some(inner) => inner.clone(),
+                None => {
+                    panic!("Tried to get a sender from the context of a no longer existing actor");
+                },
+            }
+        };
+        inner.current_sender.lock().unwrap().as_ref().unwrap().clone()
     }
 
     fn children(&self) -> Vec<Arc<CanReceive>> {
-        self.inner_cell.children.lock().unwrap().clone()
+        let inner = match self.inner_cell {
+            Ref::StrongRef(ref inner) => inner.clone(),
+            Ref::WeakRef(ref inner) => match inner.upgrade() {
+                Some(inner) => inner.clone(),
+                None => {
+                    panic!("Tried to get the children from the context of a no longer existing actor");
+                },
+            }
+        };
+        inner.children.lock().unwrap().clone()
     }
 
     fn monitoring(&self) -> Vec<Arc<CanReceive>> {
-        self.inner_cell.monitoring.lock().unwrap().clone()
+        let inner = match self.inner_cell {
+            Ref::StrongRef(ref inner) => inner.clone(),
+            Ref::WeakRef(ref inner) => match inner.upgrade() {
+                Some(inner) => inner.clone(),
+                None => {
+                    panic!("Tried to get the monitored actors from the context of a no longer existing actor");
+                },
+            }
+        };
+        inner.monitoring.lock().unwrap().clone()
     }
 }
 
