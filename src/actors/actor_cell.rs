@@ -143,11 +143,12 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
         let actor_cell = ActorCell {
             inner_cell: Ref::StrongRef(Arc::new(inner_cell)),
         };
-        let child = ActorRef::with_cell(actor_cell);
-        {inner.children.lock().unwrap().push(Arc::new(child.clone()));}
-        {inner.monitoring.lock().unwrap().push(Arc::new(child.clone()));}
-        child.receive_system_message(SystemMessage::Start);
-        child
+        let my_child = ActorRef::with_cell(actor_cell);
+        let their_view = my_child.clone();
+        {inner.children.lock().unwrap().push(Arc::new(my_child));}
+        {inner.monitoring.lock().unwrap().push(Arc::new(their_view.clone()));}
+        their_view.receive_system_message(SystemMessage::Start);
+        their_view
     }
 
     fn tell<MessageTo: Message, T: CanReceive>(&self, to: T, message: MessageTo) {
@@ -164,7 +165,8 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
                 },
             }
         };
-        inner.current_sender.lock().unwrap().as_ref().unwrap().clone()
+        let current_sender = inner.current_sender.lock().unwrap().as_ref().unwrap().clone();
+        current_sender
     }
 
     fn children(&self) -> Vec<Arc<CanReceive>> {
@@ -177,7 +179,8 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
                 },
             }
         };
-        inner.children.lock().unwrap().clone()
+        let children = inner.children.lock().unwrap().clone();
+        children
     }
 
     fn monitoring(&self) -> Vec<Arc<CanReceive>> {
@@ -190,7 +193,8 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
                 },
             }
         };
-        inner.monitoring.lock().unwrap().clone()
+        let monitoring = inner.monitoring.lock().unwrap().clone();
+        monitoring
     }
 }
 
