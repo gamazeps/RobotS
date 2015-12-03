@@ -21,6 +21,20 @@ enum Ref<T> {
     WeakRef(Weak<T>),
 }
 
+macro_rules! unwrap_inner {
+    ($r:expr, $b:block) => {
+        match $r {
+            Ref::StrongRef(ref inner) => inner.clone(),
+            Ref::WeakRef(ref inner) => match inner.upgrade() {
+                Some(inner) => inner.clone(),
+                None => {
+                    $b
+                },
+            }
+        }
+    }
+}
+
 /// Main interface for accessing the main Actor information (system, mailbox, sender, props...).
 pub struct ActorCell<Args: Message, M: Message, A: Actor<M> + 'static> {
     // We have an inner structure in order to be able to generate new ActorCell easily.
@@ -49,51 +63,33 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorCell<Args, M, A> {
 
     /// Puts a message with its sender in the Actor's mailbox and schedules the Actor.
     pub fn receive_message(&self, message: M, sender: Arc<CanReceive >) {
-        // TODO(gamazeps) make  a macro for this.
-        let inner = match self.inner_cell {
-            Ref::StrongRef(ref inner) => inner.clone(),
-            Ref::WeakRef(ref inner) => match inner.upgrade() {
-                Some(inner) => inner.clone(),
-                None => {
-                    println!("A message was send to a ref to a stopped actor");
-                    return;
-                },
-            }
-        };
+        let inner = unwrap_inner!(self.inner_cell,
+                                {
+                                    println!("A message was send to a ref to a stopped actor");
+                                    return;
+                                });
         inner.receive_message(message, sender);
         inner.system.enqueue_actor(self.actor_ref());
     }
 
     /// Puts a system message with its sender in the Actor's system mailbox and schedules the Actor.
     pub fn receive_system_message(&self, system_message: SystemMessage) {
-        // TODO(gamazeps) make  a macro for this.
-        let inner = match self.inner_cell {
-            Ref::StrongRef(ref inner) => inner.clone(),
-            Ref::WeakRef(ref inner) => match inner.upgrade() {
-                Some(inner) => inner,
-                None => {
-                    println!("A message was send to a ref to a stopped actor");
-                    return;
-                },
-            }
-        };
+        let inner = unwrap_inner!(self.inner_cell,
+                                {
+                                    println!("A message was send to a ref to a stopped actor");
+                                    return;
+                                });
         inner.receive_system_message(system_message);
         inner.system.enqueue_actor(self.actor_ref());
     }
 
     /// Makes the Actor handle an envelope in its mailbaox.
     pub fn handle_envelope(&self) {
-        // TODO(gamazeps) make  a macro for this.
-        let inner = match self.inner_cell {
-            Ref::StrongRef(ref inner) => inner.clone(),
-            Ref::WeakRef(ref inner) => match inner.upgrade() {
-                Some(inner) => inner,
-                None => {
-                    println!("A message was send to a ref to a stopped actor");
-                    return;
-                },
-            }
-        };
+        let inner = unwrap_inner!(self.inner_cell,
+                                {
+                                    println!("A message was send to a ref to a stopped actor");
+                                    return;
+                                });
         inner.handle_envelope(self.clone());
     }
 }
@@ -128,27 +124,23 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
     }
 
     fn actor_of<ArgBis: Message, MBis: Message, ABis: Actor<MBis> + 'static>(&self, props: Props<ArgBis, MBis, ABis>) -> ActorRef<ArgBis, MBis, ABis> {
+        let inner = unwrap_inner!(self.inner_cell,
+                                  {
+                                    panic!("Tried to create an actor from the context of a no longer
+                                           existing actor");
+                                  });
         let actor = props.create();
-        let inner = match self.inner_cell {
-            Ref::StrongRef(ref inner) => inner.clone(),
-            Ref::WeakRef(ref inner) => match inner.upgrade() {
-                Some(inner) => inner.clone(),
-                None => {
-                    panic!("Tried to create an actor from the context of a no longer existing actor");
-                },
-            }
-        };
         let inner_cell = InnerActorCell::new(actor, props, inner.system.clone(),
                                              Arc::new(self.actor_ref()));
         let actor_cell = ActorCell {
             inner_cell: Ref::StrongRef(Arc::new(inner_cell)),
         };
-        let my_child = ActorRef::with_cell(actor_cell);
-        let their_view = my_child.clone();
-        {inner.children.lock().unwrap().push(Arc::new(my_child));}
-        {inner.monitoring.lock().unwrap().push(Arc::new(their_view.clone()));}
-        their_view.receive_system_message(SystemMessage::Start);
-        their_view
+        let internal_ref = ActorRef::with_cell(actor_cell);
+        let external_ref = internal_ref.clone();
+        {inner.children.lock().unwrap().push(Arc::new(internal_ref));}
+        {inner.monitoring.lock().unwrap().push(Arc::new(external_ref.clone()));}
+        external_ref.receive_system_message(SystemMessage::Start);
+        external_ref
     }
 
     fn tell<MessageTo: Message, T: CanReceive>(&self, to: T, message: MessageTo) {
@@ -156,43 +148,31 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
     }
 
     fn sender(&self) -> Arc<CanReceive > {
-        let inner = match self.inner_cell {
-            Ref::StrongRef(ref inner) => inner.clone(),
-            Ref::WeakRef(ref inner) => match inner.upgrade() {
-                Some(inner) => inner.clone(),
-                None => {
-                    panic!("Tried to get a sender from the context of a no longer existing actor");
-                },
-            }
-        };
+        let inner = unwrap_inner!(self.inner_cell,
+                                  {
+                                    panic!("Tried to get a sender from the context of a no longer
+                                           existing actor");
+                                  });
         let current_sender = inner.current_sender.lock().unwrap().as_ref().unwrap().clone();
         current_sender
     }
 
     fn children(&self) -> Vec<Arc<CanReceive>> {
-        let inner = match self.inner_cell {
-            Ref::StrongRef(ref inner) => inner.clone(),
-            Ref::WeakRef(ref inner) => match inner.upgrade() {
-                Some(inner) => inner.clone(),
-                None => {
-                    panic!("Tried to get the children from the context of a no longer existing actor");
-                },
-            }
-        };
+        let inner = unwrap_inner!(self.inner_cell,
+                                  {
+                                      panic!("Tried to get the children from the context of a no
+                                             longer existing actor");
+                                  });
         let children = inner.children.lock().unwrap().clone();
         children
     }
 
     fn monitoring(&self) -> Vec<Arc<CanReceive>> {
-        let inner = match self.inner_cell {
-            Ref::StrongRef(ref inner) => inner.clone(),
-            Ref::WeakRef(ref inner) => match inner.upgrade() {
-                Some(inner) => inner.clone(),
-                None => {
-                    panic!("Tried to get the monitored actors from the context of a no longer existing actor");
-                },
-            }
-        };
+        let inner = unwrap_inner!(self.inner_cell,
+                                  {
+                                      panic!("Tried to get the monitored actors from the context of
+                                             a no longer existing actor");
+                                  });
         let monitoring = inner.monitoring.lock().unwrap().clone();
         monitoring
     }
