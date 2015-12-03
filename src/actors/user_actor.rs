@@ -7,6 +7,8 @@ use actors::{
     ActorRef,
     ActorSystem,
     CanReceive,
+    ControlMessage,
+    InnerMessage,
     Message,
     Props,
     SystemMessage};
@@ -41,10 +43,19 @@ impl Clone for UserActorRef {
 impl CanReceive for UserActorRef {
     // TODO(gamazeps) this is a copy of the code in src/actor_ref.rs, this is bad.
     fn receive(&self, message: Box<Any>, sender: Arc<CanReceive >) {
-        let cast = message.downcast::<()>();
-        match cast {
-            Ok(message) => self.actor_cell.receive_message(*message, sender),
-            Err(_) => panic!("Send a message of the wrong type to an actor"),
+        match message.downcast::<ControlMessage>() {
+            Ok(message) => {
+                self.actor_cell.receive_message(InnerMessage::Control(*message), sender);
+                return;
+            },
+            Err(message) => {
+                match message.downcast::<()>() {
+                    Ok(message) => self.actor_cell.receive_message(InnerMessage::Message(*message), sender),
+                    Err(_) => {
+                        println!("Send a message of the wrong type to an actor");
+                    },
+                }
+            },
         }
     }
 

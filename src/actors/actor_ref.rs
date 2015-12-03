@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use actors::{Actor, ActorContext, Message, SystemMessage};
+use actors::{Actor, ActorContext, ControlMessage, InnerMessage, Message, SystemMessage};
 use actors::actor_cell::ActorCell;
 
 /// This is a reference to an Actor and what is supposed to be manipulated by the user.
@@ -28,7 +28,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorRef<Args, M, A> {
 
     /// Sends a Message to a CanReceive<Message>.
     pub fn tell_to<MessageTo: Message, T: CanReceive>(&self, to: T, message: MessageTo) {
-        self.actor_cell.tell(to, message);
+        self.actor_cell.outer_tell(to, message);
     }
 }
 
@@ -49,10 +49,19 @@ pub trait CanReceive: Send + Sync {
 
 impl<Args: Message, M: Message, A: Actor<M> + 'static> CanReceive for ActorRef<Args, M, A> {
     fn receive(&self, message: Box<Any>, sender: Arc<CanReceive>) {
-        let cast = message.downcast::<M>();
-        match cast {
-            Ok(message) => self.actor_cell.receive_message(*message, sender),
-            Err(_) => panic!("Send a message of the wrong type to an actor"),
+        match message.downcast::<ControlMessage>() {
+            Ok(message) => {
+                self.actor_cell.receive_message(InnerMessage::Control(*message), sender);
+                return;
+            },
+            Err(message) => {
+                match message.downcast::<M>() {
+                    Ok(message) => self.actor_cell.receive_message(InnerMessage::Message(*message), sender),
+                    Err(_) => {
+                        println!("Send a message of the wrong type to an actor");
+                    },
+                }
+            },
         }
     }
 

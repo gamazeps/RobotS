@@ -84,8 +84,8 @@ impl ActorSystem {
     }
 
     /// Enqueues the given Actor on the queue of Actors with something to handle.
-    pub fn enqueue_actor<Args: Message, M: Message, A: Actor<M> + 'static>(&self, actor_ref: ActorRef<Args, M, A>) {
-        match self.actors_queue_sender.lock().unwrap().send(Arc::new(actor_ref)) {
+    pub fn enqueue_actor<Args: Message, M: Message, A: Actor<M> + 'static>(&self, actor_ref: Arc<ActorRef<Args, M, A>>) {
+        match self.actors_queue_sender.lock().unwrap().send(actor_ref) {
             Ok(_) => return,
             Err(_) => {
                 println!("The communication channel for messages is disconnected, this is bad!");

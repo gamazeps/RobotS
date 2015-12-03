@@ -1,6 +1,6 @@
 use std::any::Any;
 
-pub use self::actor_cell::{ActorCell, ActorContext, SystemMessage};
+pub use self::actor_cell::{ActorCell, ActorContext, ControlMessage, InnerMessage, SystemMessage};
 pub use self::actor_ref::{CanReceive, ActorRef};
 pub use self::actor_system::ActorSystem;
 pub use self::props::Props;
@@ -74,7 +74,7 @@ pub trait Actor<M: Message>: Send + Sync + Sized {
     /// This is put in a separated method because match in rust must check all variations and we
     /// chose not to force the user to make a case for terminations if it doesn not monitor any
     /// actor.
-    fn receive_termination() { }
+    fn receive_termination(&self) { }
 
     /// Method called before the Actor is started.
     fn pre_start(&self) {
