@@ -17,8 +17,3 @@ git = "https://github.com/carllerche/eventual"
 [lib]
 name = "robots"
 path = "src/lib.rs"
-
-[[bin]]
-doc = false
-name = "main"
-path = "src/main.rs"
