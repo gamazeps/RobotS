@@ -27,8 +27,8 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorRef<Args, M, A> {
     }
 
     /// Sends a Message to a CanReceive<Message>.
-    pub fn tell_to<MessageTo: Message, T: CanReceive>(&self, to: T, message: MessageTo) {
-        self.actor_cell.outer_tell(to, message);
+    pub fn tell_to<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo) {
+        self.actor_cell.tell(to, message);
     }
 }
 

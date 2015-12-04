@@ -75,7 +75,7 @@ impl ActorSystem {
     }
 
     /// Spawns an Actor of type A, created using the Props given.
-    pub fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
+    pub fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> Arc<ActorRef<Args, M, A>> {
         let user_actor = self.user_actor.lock().unwrap().clone();
         match user_actor {
             Some(user_actor) => user_actor.actor_of(props),

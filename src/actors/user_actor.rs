@@ -29,7 +29,7 @@ impl UserActorRef {
     }
 
     /// Creates an actor for the user.
-    pub fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> ActorRef<Args, M, A> {
+    pub fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> Arc<ActorRef<Args, M, A>> {
         self.actor_cell.actor_of(props)
     }
 }

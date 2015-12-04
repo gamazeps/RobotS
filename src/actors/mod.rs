@@ -74,10 +74,12 @@ pub trait Actor<M: Message>: Send + Sync + Sized {
     /// This is put in a separated method because match in rust must check all variations and we
     /// chose not to force the user to make a case for terminations if it doesn not monitor any
     /// actor.
-    fn receive_termination(&self) { }
+    fn receive_termination<Args: Message>(&self, _context: ActorCell<Args, M, Self>) {
+        panic!("Not implemented");
+    }
 
     /// Method called before the Actor is started.
-    fn pre_start(&self) {
+    fn pre_start<Args: Message>(&self, _context: ActorCell<Args, M, Self>) {
     }
 
     /// Method called after the Actor is stopped.
@@ -85,13 +87,13 @@ pub trait Actor<M: Message>: Send + Sync + Sized {
     }
 
     /// Method called before the Actor is restarted.
-    fn pre_restart(&self) {
+    fn pre_restart<Args: Message>(&self, _context: ActorCell<Args, M, Self>) {
         self.post_stop();
     }
 
     /// Method called after the Actor is restarted.
-    fn post_restart(&self) {
-        self.pre_start();
+    fn post_restart<Args: Message>(&self, context: ActorCell<Args, M, Self>) {
+        self.pre_start(context);
     }
 }
 

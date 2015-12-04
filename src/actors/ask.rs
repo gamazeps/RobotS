@@ -22,15 +22,19 @@ impl<M: Message,
                     Some(complete) => {
                         complete.complete(*message);
                     },
-                    None => panic!("Tried to send more than one message to a Complete"),
+                    None => {
+                        println!("Tried to send more than one message to a Complete");
+                    },
                 }
             },
-            Err(_) => panic!("Send a message of the wrong type to a future"),
+            Err(_) => {
+                println!("Send a message of the wrong type to a future");
+            },
         }
     }
 
     fn receive_system_message(&self, _: SystemMessage) {
-        panic!("Tried to send a SystemMessage to an Actor");
+        println!("Tried to send a SystemMessage to a Complete");
     }
 
     fn handle(&self) {
