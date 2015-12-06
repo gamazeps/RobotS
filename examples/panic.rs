@@ -45,10 +45,6 @@ fn main() {
     restarted_actor_ref_1.tell_to(restarted_actor_ref_2.clone(), InternalStateMessage::Set(7));
     restarted_actor_ref_1.tell_to(restarted_actor_ref_2.clone(), InternalStateMessage::Get);
     restarted_actor_ref_1.tell_to(restarted_actor_ref_2.clone(), InternalStateMessage::Panic);
-    // TODO(gamazeps): Having to wait here is a bug in the library.
-    // Indeed, there is currently no way to check that an actor has been restarted if it failed.
-    // Here we explicitly wait for it to be restarted.
-    std::thread::sleep(Duration::from_millis(1));
     restarted_actor_ref_1.tell_to(restarted_actor_ref_2.clone(), InternalStateMessage::Get);
 
     std::thread::sleep(Duration::from_millis(1));

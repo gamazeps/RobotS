@@ -207,17 +207,26 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
     }
 }
 
+#[derive(PartialEq)]
+enum ActorState {
+    Failed,
+    Running,
+    Unstarted,
+}
+
 struct Failsafe {
     father: Arc<CanReceive>,
     child: Arc<CanReceive>,
+    state: Arc<RwLock<ActorState>>,
     active: bool,
 }
 
 impl Failsafe {
-    fn new(father: Arc<CanReceive>, child: Arc<CanReceive>) -> Failsafe {
+    fn new(father: Arc<CanReceive>, child: Arc<CanReceive>, state: Arc<RwLock<ActorState>>) -> Failsafe {
         Failsafe {
             father: father,
             child: child,
+            state: state,
             active: true,
         }
     }
@@ -230,6 +239,7 @@ impl Failsafe {
 impl Drop for Failsafe {
     fn drop(&mut self) {
         if self.active {
+            *self.state.write().unwrap() = ActorState::Failed;
             self.father.receive_system_message(SystemMessage::Failure(self.child.clone()));
         }
     }
@@ -248,6 +258,7 @@ struct InnerActorCell<Args: Message, M: Message, A: Actor<M> + 'static> {
     // we cannot create an owning one from an external one with the CanReceive interface).
     children: Mutex<Vec<(Arc<CanReceive>, Arc<CanReceive>)>>,
     monitoring: Mutex<Vec<Arc<CanReceive>>>,
+    actor_state: Arc<RwLock<ActorState>>,
     _monitored: Mutex<Vec<Arc<CanReceive>>>,
 }
 
@@ -292,6 +303,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A
             father: father.clone(),
             children: Mutex::new(Vec::new()),
             monitoring: Mutex::new(Vec::new()),
+            actor_state: Arc::new(RwLock::new(ActorState::Unstarted)),
             _monitored: Mutex::new(vec![father.clone()]),
         }
     }
@@ -311,7 +323,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A
     fn handle_envelope(&self, context: ActorCell<Args, M, A>) {
         // Now we do not want users to be able to touch current_sender while the actor is busy.
         let _lock = self.busy.lock();
-        let failsafe = Failsafe::new(self.father.clone(), context.actor_ref());
+        let failsafe = Failsafe::new(self.father.clone(), context.actor_ref(), self.actor_state.clone());
         // System messages are handled first, so that we can restart an actor if he failed without
         // loosing the messages in the mailbox.
         // NOTE: This does not break the fact that messages sent by the same actor are treated in
@@ -326,34 +338,40 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A
             failsafe.cancel();
             return;
         }
-        let envelope = match self.mailbox.lock().unwrap().pop_front() {
-            Some(envelope) => envelope,
-            None => {
-                failsafe.cancel();
-                return;
-            }
-        };
-        {
-            let mut current_sender = self.current_sender.lock().unwrap();
-            *current_sender = Some(envelope.sender.clone());
-        };
-        {
-            let actor = self.actor.read().unwrap();
-            match envelope.message {
-                InnerMessage::Message(message) => actor.receive(message, context),
-                InnerMessage::Control(message) => match message {
-                    ControlMessage::PoisonPill => {
-                        context.kill_me();
-                        println!("someone, tried to kill me");
+
+        if *self.actor_state.read().unwrap() == ActorState::Running {
+            let envelope = match self.mailbox.lock().unwrap().pop_front() {
+                Some(envelope) => envelope,
+                None => {
+                    failsafe.cancel();
+                    return;
+                }
+            };
+            {
+                let mut current_sender = self.current_sender.lock().unwrap();
+                *current_sender = Some(envelope.sender.clone());
+            };
+            {
+                let actor = self.actor.read().unwrap();
+                match envelope.message {
+                    InnerMessage::Message(message) => actor.receive(message, context),
+                    InnerMessage::Control(message) => match message {
+                        ControlMessage::PoisonPill => {
+                            context.kill_me();
+                            println!("someone, tried to kill me");
+                        },
+                        ControlMessage::Terminated(_) => actor.receive_termination(context),
+                        ControlMessage::KillMe(actor_ref) => {
+                            self.kill(actor_ref);
+                            println!("a child wants to die");
+                        },
                     },
-                    ControlMessage::Terminated(_) => actor.receive_termination(context),
-                    ControlMessage::KillMe(actor_ref) => {
-                        self.kill(actor_ref);
-                        println!("a child wants to die");
-                    },
-                },
+                }
             }
+        } else {
+            self.system.enqueue_actor(context.actor_ref());
         }
+
         failsafe.cancel();
     }
 
@@ -382,6 +400,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A
 
     fn start(&self, context: ActorCell<Args, M, A>) {
         self.actor.write().unwrap().pre_start(context);
+        *self.actor_state.write().unwrap() = ActorState::Running;
     }
 
     fn restart(&self, context: ActorCell<Args, M, A>) {
@@ -389,6 +408,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A
         actor.pre_restart(context.clone());
         *actor = self.props.create();
         actor.post_restart(context.clone());
+        *self.actor_state.write().unwrap() = ActorState::Running;
     }
 }
 
