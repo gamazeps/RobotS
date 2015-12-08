@@ -1,8 +1,13 @@
+extern crate eventual;
+
+use self::eventual::Future;
+
 use std::any::Any;
 use std::sync::Arc;
 
 use actors::{Actor, ActorContext, ControlMessage, InnerMessage, Message, SystemMessage};
 use actors::actor_cell::ActorCell;
+use actors::ask::AskPattern;
 
 /// Type used to represent an ActorPath.
 /// This is juste a string now but will contain more information later.
@@ -35,6 +40,11 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorRef<Args, M, A> {
     /// Sends a Message to a CanReceive<Message>.
     pub fn tell_to<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo) {
         self.actor_cell.tell(to, message);
+    }
+
+    /// Sends a Message to a CanReceive<Message>.
+    pub fn ask_to<MessageTo: Message, V: Message, E: Send + 'static>(&self, to: Arc<CanReceive>, message: MessageTo) -> Future<V, E>{
+        self.actor_cell.ask(to, message)
     }
 }
 

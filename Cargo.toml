@@ -10,6 +10,7 @@ dev = ["clippy"]
 
 [dependencies]
 clippy = {version = "*", optional = true}
+rand = "0.3.0"
 
 [dependencies.eventual]
 git = "https://github.com/carllerche/eventual"

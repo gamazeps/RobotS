@@ -3,20 +3,20 @@ extern crate eventual;
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 
-use self::eventual::{Future, Complete};
+use self::eventual::{Complete, Future};
 
 use actors::{Actor, ActorCell, ActorContext, ActorPath, CanReceive, Message, SystemMessage};
 
-struct CompleteRef<T: Send + 'static, E: Send + 'static> {
-    complete: Mutex<Option<Complete<T, E>>>,
+struct CompleteRef<V: Send + 'static, E: Send + 'static> {
+    complete: Mutex<Option<Complete<V, E>>>,
     path: ActorPath,
 }
 
-impl<M: Message,
+impl<V: Message,
     E: Send + 'static>
-    CanReceive for CompleteRef<M, E> {
+    CanReceive for CompleteRef<V, E> {
     fn receive(&self, message: Box<Any>, _: Arc<CanReceive >) {
-        let cast = message.downcast::<M>();
+        let cast = message.downcast::<V>();
         match cast {
             Ok(message) => {
                 let mut guard = self.complete.lock().unwrap();
@@ -50,21 +50,21 @@ impl<M: Message,
 }
 
 /// Trait to implement for having the ask method.
-pub trait AskPattern<Args: Message, M: Message, A: Actor<M> + 'static, E: Send + 'static>: ActorContext<Args, M, A> {
+pub trait AskPattern<Args: Message, M: Message, A: Actor<M> + 'static, V: Message, E: Send + 'static>: ActorContext<Args, M, A> {
     /// Sends a request to an Actor and stores the potential result in a Future.
     ///
     /// The Future will be completed with the value the actor will answer with.
-    fn ask<Message: Copy + Send + 'static + Any, T: CanReceive>(&self, to: T, message: Message)
-        -> Future<M, E>;
+    fn ask<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo) -> Future<V, E>;
 }
 
 impl<Args: Message,
 M: Message,
 A: Actor<M> + 'static,
+V: Message,
 E: Send + 'static>
-AskPattern<Args, M, A, E> for ActorCell<Args, M, A> {
-    fn ask<Message: Copy + Send + 'static + Any, T: CanReceive>(&self, to: T, message: Message) -> Future<M, E> {
-        let (complete, future) = Future::<M, E>::pair();
+AskPattern<Args, M, A, V, E> for ActorCell<Args, M, A> {
+    fn ask<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo) -> Future<V, E> {
+        let (complete, future) = Future::<V, E>::pair();
         let complete_ref = CompleteRef {
             complete: Mutex::new(Some(complete)),
             path: Arc::new("".to_owned()),
