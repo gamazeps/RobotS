@@ -2,7 +2,7 @@ use std::any::Any;
 use std::process::exit;
 use std::sync::Arc;
 
-use actors::{CanReceive, SystemMessage};
+use actors::{ActorPath, CanReceive, SystemMessage};
 
 /// Cthulhu is the original Actor in the Actor Hierarchy (used as the father of the root actor).
 /// Naturaly waking Cthulhu up (by sending him a message) will wreck havoc on your application.
@@ -39,6 +39,10 @@ impl CanReceive for Cthulhu {
             This should never happen.");
         // Here we choose to exit the whole application as this is a hard error.
         // TODO(gamazeps) define error codes for the application when more exit reason appear.
+        exit(1);
+    }
+
+    fn path(&self) -> ActorPath {
         exit(1);
     }
 }

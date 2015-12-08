@@ -16,12 +16,12 @@ struct HelloWorld;
 impl Actor<Greetings> for HelloWorld {
     fn pre_start<Args: Message>(&self, context: ActorCell<Args, Greetings, HelloWorld>) {
         let props = Props::new(Arc::new(Greeter::new), ());
-        let greeter = context.actor_of(props);
+        let greeter = context.actor_of(props, "greeter".to_owned());
         context.tell(greeter, Greetings::Greet);
     }
-    fn receive<Args: Message>(&self, message: Greetings, _context: ActorCell<Args, Greetings, HelloWorld>) {
+    fn receive<Args: Message>(&self, message: Greetings, context: ActorCell<Args, Greetings, HelloWorld>) {
         if message == Greetings::Done {
-            println!("The greeting is done");
+            context.stop(context.sender());
         }
     }
 }
@@ -54,9 +54,7 @@ fn main() {
     actor_system.spawn_threads(1);
 
     let props = Props::new(Arc::new(HelloWorld::new), ());
-    let _actor = actor_system.actor_of(props);
+    let _actor = actor_system.actor_of(props, "hello_world".to_owned());
 
     std::thread::sleep(Duration::from_millis(100));
-
-    actor_system.terminate_threads(1);
 }

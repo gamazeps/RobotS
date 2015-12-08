@@ -30,13 +30,12 @@ fn main() {
     actor_system.spawn_threads(2);
 
     let props_factorial = Props::new(Arc::new(Factorial::new), ());
-    let factorial_actor_ref_1 = actor_system.actor_of(props_factorial.clone());
-    let factorial_actor_ref_2 = actor_system.actor_of(props_factorial.clone());
+    let factorial_actor_ref_1 = actor_system.actor_of(props_factorial.clone(), "sender".to_owned());
+    let factorial_actor_ref_2 = actor_system.actor_of(props_factorial.clone(), "receiver".to_owned());
 
     factorial_actor_ref_1.tell_to(factorial_actor_ref_2.clone(), (3u32, 1u32));
     factorial_actor_ref_1.tell_to(factorial_actor_ref_2.clone(), (7u32, 1u32));
     factorial_actor_ref_1.tell_to(factorial_actor_ref_2.clone(), (11u32, 1u32));
 
     std::thread::sleep(Duration::from_millis(10));
-    actor_system.terminate_threads(2);
 }

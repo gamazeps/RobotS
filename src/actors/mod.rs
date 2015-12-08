@@ -1,7 +1,7 @@
 use std::any::Any;
 
 pub use self::actor_cell::{ActorCell, ActorContext, ControlMessage, InnerMessage, SystemMessage};
-pub use self::actor_ref::{CanReceive, ActorRef};
+pub use self::actor_ref::{CanReceive, ActorPath, ActorRef};
 pub use self::actor_system::ActorSystem;
 pub use self::props::Props;
 

@@ -3,7 +3,9 @@ use std::sync::Arc;
 
 use actors::{
     Actor,
+    ActorCell,
     ActorContext,
+    ActorPath,
     ActorRef,
     ActorSystem,
     CanReceive,
@@ -12,11 +14,11 @@ use actors::{
     Message,
     Props,
     SystemMessage};
-use actors::actor_cell::ActorCell;
 use actors::cthulhu::Cthulhu;
 
 pub struct UserActorRef {
     actor_cell: ActorCell<(), (), InternalUserActor>,
+    path: ActorPath,
 }
 
 impl UserActorRef {
@@ -24,19 +26,26 @@ impl UserActorRef {
     pub fn new(system: ActorSystem, cthulhu: Arc<Cthulhu>) -> UserActorRef {
         let props = Props::new(Arc::new(InternalUserActor::new), ());
         let actor = props.create();
-        let actor_cell = ActorCell::new(actor, props, system, cthulhu);
-        UserActorRef { actor_cell: actor_cell }
+        let name = Arc::new("/user".to_owned());
+        let actor_cell = ActorCell::new(actor, props, system, cthulhu, name.clone());
+        UserActorRef {
+            actor_cell: actor_cell,
+            path: name.clone(),
+        }
     }
 
     /// Creates an actor for the user.
-    pub fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>) -> Arc<ActorRef<Args, M, A>> {
-        self.actor_cell.actor_of(props)
+    pub fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>, name: String) -> Arc<ActorRef<Args, M, A>> {
+        self.actor_cell.actor_of(props, name)
     }
 }
 
 impl Clone for UserActorRef {
     fn clone(&self) -> UserActorRef {
-        UserActorRef { actor_cell: self.actor_cell.clone() }
+        UserActorRef {
+            actor_cell: self.actor_cell.clone(),
+            path: self.path.clone(),
+        }
     }
 }
 
@@ -65,6 +74,10 @@ impl CanReceive for UserActorRef {
 
     fn handle(&self) {
         self.actor_cell.handle_envelope();
+    }
+
+    fn path(&self) -> ActorPath {
+        self.path.clone()
     }
 }
 

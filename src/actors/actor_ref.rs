@@ -4,25 +4,31 @@ use std::sync::Arc;
 use actors::{Actor, ActorContext, ControlMessage, InnerMessage, Message, SystemMessage};
 use actors::actor_cell::ActorCell;
 
+/// Type used to represent an ActorPath.
+/// This is juste a string now but will contain more information later.
+pub type ActorPath = Arc<String>;
+
 /// This is a reference to an Actor and what is supposed to be manipulated by the user.
 ///
 /// The only thing it can do is send and receive messages (according to the actor model in defined
 /// by Hewitt).
 pub struct ActorRef<Args: Message, M: Message, A: Actor<M> + 'static> {
     actor_cell: ActorCell<Args, M, A>,
+    path: ActorPath,
 }
 
 impl<Args: Message, M: Message, A: Actor<M> + 'static> Clone for ActorRef<Args, M, A> {
     fn clone(&self) -> ActorRef<Args, M, A> {
-        ActorRef::with_cell(self.actor_cell.clone())
+        ActorRef::with_cell(self.actor_cell.clone(), self.path().clone())
     }
 }
 
 impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorRef<Args, M, A> {
     /// Creates an ActorRef<Args, M, A> with the given ActorCell<Args, M, A>.
-    pub fn with_cell(cell: ActorCell<Args, M, A>) -> ActorRef<Args, M, A> {
+    pub fn with_cell(cell: ActorCell<Args, M, A>, path: ActorPath) -> ActorRef<Args, M, A> {
         ActorRef {
             actor_cell: cell,
+            path: path,
         }
     }
 
@@ -45,6 +51,14 @@ pub trait CanReceive: Send + Sync {
     ///
     /// Thus completes a Promise or calls the Actor's receive method.
     fn handle(&self);
+
+    /// Path to the actor.
+    fn path(&self) -> ActorPath;
+
+    /// Tool for comparing actor refs.
+    fn equals(&self, other: &CanReceive) -> bool {
+        self.path() == other.path()
+    }
 }
 
 impl<Args: Message, M: Message, A: Actor<M> + 'static> CanReceive for ActorRef<Args, M, A> {
@@ -71,5 +85,9 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> CanReceive for ActorRef<A
 
     fn handle(&self) {
         self.actor_cell.handle_envelope();
+    }
+
+    fn path(&self) -> ActorPath {
+        self.path.clone()
     }
 }

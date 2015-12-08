@@ -5,8 +5,12 @@ use std::sync::{Arc, Mutex};
 
 use self::eventual::{Future, Complete};
 
-use actors::{Actor, ActorContext, CanReceive, Message, SystemMessage};
-use actors::actor_cell::ActorCell;
+use actors::{Actor, ActorCell, ActorContext, ActorPath, CanReceive, Message, SystemMessage};
+
+struct CompleteRef<T: Send + 'static, E: Send + 'static> {
+    complete: Mutex<Option<Complete<T, E>>>,
+    path: ActorPath,
+}
 
 impl<M: Message,
     E: Send + 'static>
@@ -39,10 +43,10 @@ impl<M: Message,
 
     fn handle(&self) {
     }
-}
 
-struct CompleteRef<T: Send + 'static, E: Send + 'static> {
-    complete: Mutex<Option<Complete<T, E>>>,
+    fn path(&self) -> ActorPath {
+        self.path.clone()
+    }
 }
 
 /// Trait to implement for having the ask method.
@@ -61,7 +65,10 @@ E: Send + 'static>
 AskPattern<Args, M, A, E> for ActorCell<Args, M, A> {
     fn ask<Message: Copy + Send + 'static + Any, T: CanReceive>(&self, to: T, message: Message) -> Future<M, E> {
         let (complete, future) = Future::<M, E>::pair();
-        let complete_ref = CompleteRef { complete: Mutex::new(Some(complete)) };
+        let complete_ref = CompleteRef {
+            complete: Mutex::new(Some(complete)),
+            path: Arc::new("".to_owned()),
+        };
         to.receive(Box::new(message), Arc::new(complete_ref));
         future
     }

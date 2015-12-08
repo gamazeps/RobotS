@@ -35,11 +35,11 @@ impl InternalState {
 
 fn main() {
     let actor_system = ActorSystem::new("test".to_owned());
-    actor_system.spawn_threads(1);
+    actor_system.spawn_threads(2);
 
     let restarted_props = Props::new(Arc::new(InternalState::new), 3);
-    let restarted_actor_ref_1 = actor_system.actor_of(restarted_props.clone());
-    let restarted_actor_ref_2 = actor_system.actor_of(restarted_props.clone());
+    let restarted_actor_ref_1 = actor_system.actor_of(restarted_props.clone(), "sender".to_owned());
+    let restarted_actor_ref_2 = actor_system.actor_of(restarted_props.clone(), "receiver".to_owned());
 
     restarted_actor_ref_1.tell_to(restarted_actor_ref_2.clone(), InternalStateMessage::Get);
     restarted_actor_ref_1.tell_to(restarted_actor_ref_2.clone(), InternalStateMessage::Set(7));
@@ -48,5 +48,4 @@ fn main() {
     restarted_actor_ref_1.tell_to(restarted_actor_ref_2.clone(), InternalStateMessage::Get);
 
     std::thread::sleep(Duration::from_millis(1));
-    actor_system.terminate_threads(1);
 }
