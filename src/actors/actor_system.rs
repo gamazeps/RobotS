@@ -1,4 +1,3 @@
-use std::process::exit;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
@@ -88,8 +87,8 @@ impl ActorSystem {
         match self.actors_queue_sender.lock().unwrap().send(actor_ref) {
             Ok(_) => return,
             Err(_) => {
-                println!("The communication channel for messages is disconnected, this is bad!");
-                exit(1);
+                // TODO(gamazeps): need to shut down the system in a clean way in this case.
+                panic!("The communication channel for messages is disconnected, this is bad!");
             },
         }
     }
@@ -125,8 +124,9 @@ impl ActorSystem {
                     Ok(actor_ref) => actor_ref.handle(),
                     Err(TryRecvError::Empty) => continue,
                     Err(TryRecvError::Disconnected) => {
-                        println!("The actors queue failed, something is very wrong");
-                        exit(1);
+                        // TODO(gamazeps): need to shut down the system in a clean way in this case.
+                        relauncher.cancel();
+                        panic!("The actors queue failed, something is very wrong");
                     }
                 }
             }
