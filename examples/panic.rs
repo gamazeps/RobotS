@@ -47,5 +47,6 @@ fn main() {
     restarted_actor_ref_1.tell_to(restarted_actor_ref_2.clone(), InternalStateMessage::Panic);
     restarted_actor_ref_1.tell_to(restarted_actor_ref_2.clone(), InternalStateMessage::Get);
 
-    std::thread::sleep(Duration::from_millis(1));
+    std::thread::sleep(Duration::from_millis(10));
+    actor_system.shutdown();
 }

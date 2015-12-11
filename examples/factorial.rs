@@ -38,4 +38,5 @@ fn main() {
     factorial_actor_ref_1.tell_to(factorial_actor_ref_2.clone(), (11u32, 1u32));
 
     std::thread::sleep(Duration::from_millis(10));
+    actor_system.shutdown();
 }

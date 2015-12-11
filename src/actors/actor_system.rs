@@ -35,17 +35,7 @@ impl Drop for Relauncher {
 /// ActorSystem, the struct that manages the creation of everything and that everything does what
 /// it is supposed to do.
 pub struct ActorSystem {
-    name: Arc<String>,
-    // For now we will have the worker pool in the system.
-    // TODO(gamazeps): find a way to have a clean way to separate system and user threads.
-    consumer_threads_sender: Arc<Mutex<Sender<()>>>,
-    consumer_threads_receiver: Arc<Mutex<Receiver<()>>>,
-    // Sends Canreceive to be handled on that channel.
-    actors_queue_sender: Arc<Mutex<Sender<Arc<CanReceive>>>>,
-    // Receiving end to give to the thread pool.
-    actors_queue_receiver: Arc<Mutex<Receiver<Arc<CanReceive>>>>,
-    cthulhu: Arc<Cthulhu>,
-    user_actor: Mutex<Option<UserActorRef>>,
+    inner: Arc<InnerActorSystem>,
 }
 
 impl ActorSystem {
@@ -53,54 +43,39 @@ impl ActorSystem {
     ///
     /// Note that no threads are started.
     pub fn new(name: String) -> ActorSystem {
-        let (tx_queue, rx_queue) = channel();
-        let (tx_thread, rx_thread) = channel();
         let actor_system = ActorSystem {
-            name: Arc::new(name),
-            consumer_threads_sender: Arc::new(Mutex::new(tx_thread)),
-            consumer_threads_receiver: Arc::new(Mutex::new(rx_thread)),
-            actors_queue_sender: Arc::new(Mutex::new(tx_queue)),
-            actors_queue_receiver: Arc::new(Mutex::new(rx_queue)),
-            cthulhu: Arc::new(Cthulhu::new()),
-            user_actor: Mutex::new(None),
+            inner: Arc::new(InnerActorSystem::new(name))
         };
-        actor_system.spawn_user_actor();
+        let cthulhu = Arc::new(Cthulhu::new(actor_system.clone()));
+        *actor_system.inner.cthulhu.lock().unwrap() = Some(cthulhu.clone());
+        let user_actor = UserActorRef::new(actor_system.clone(), cthulhu.clone());
+        *actor_system.inner.user_actor.lock().unwrap() = Some(user_actor);
         actor_system
-    }
-
-    fn spawn_user_actor(&self) {
-        let user_actor = UserActorRef::new(self.clone(), self.cthulhu.clone());
-        *self.user_actor.lock().unwrap() = Some(user_actor);
     }
 
     /// Spawns an Actor of type A, created using the Props given.
     pub fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>, name: String) -> Arc<ActorRef<Args, M, A>> {
-        let user_actor = self.user_actor.lock().unwrap().clone();
-        match user_actor {
-            Some(user_actor) => user_actor.actor_of(props, name),
-            None => panic!("The user actor is not initialised"),
-        }
+        self.inner.actor_of(props, name)
+    }
+
+    /// Shuts the actor system down.
+    pub fn shutdown(&self) {
+        self.inner.shutdown();
     }
 
     /// Enqueues the given Actor on the queue of Actors with something to handle.
     pub fn enqueue_actor<Args: Message, M: Message, A: Actor<M> + 'static>(&self, actor_ref: Arc<ActorRef<Args, M, A>>) {
-        match self.actors_queue_sender.lock().unwrap().send(actor_ref) {
-            Ok(_) => return,
-            Err(_) => {
-                // TODO(gamazeps): need to shut down the system in a clean way in this case.
-                panic!("The communication channel for messages is disconnected, this is bad!");
-            },
-        }
+        self.inner.enqueue_actor(actor_ref);
     }
 
     /// Spawns a thread that will consume messages from the `ActorRef` in `actors_queue`.
     /// This thread can be terminated by calling `terminate_thread`.
     pub fn spawn_thread(&self) {
-        let actors_queue = self.actors_queue_receiver.clone();
-        let rx = self.consumer_threads_receiver.clone();
+        let actors_queue = self.inner.actors_queue_receiver.clone();
+        let rx = self.inner.consumer_threads_receiver.clone();
         let actor_system =  self.clone();
         let _ = thread::spawn(move || {
-            let relauncher = Relauncher::new(actor_system);
+            let relauncher = Relauncher::new(actor_system.clone());
             // Here we beed to give it an initial value, so Cthulhu it is.
             // Keep on tryieng relaunching threads as they fail.
             loop {
@@ -124,18 +99,19 @@ impl ActorSystem {
                     Ok(actor_ref) => actor_ref.handle(),
                     Err(TryRecvError::Empty) => continue,
                     Err(TryRecvError::Disconnected) => {
-                        // TODO(gamazeps): need to shut down the system in a clean way in this case.
                         relauncher.cancel();
+                        actor_system.shutdown();
                         panic!("The actors queue failed, something is very wrong");
                     }
                 }
             }
         });
+        *self.inner.n_threads.lock().unwrap() += 1;
     }
 
     /// Kills a consumer thread of the `ActorSystem`.
     pub fn terminate_thread(&self) {
-        let _ = self.consumer_threads_sender.lock().unwrap().send(());
+        self.inner.terminate_thread();
     }
 
     /// Spawns n threads that will consume messages from the `ActorRef` in `actors_queue`.
@@ -147,22 +123,96 @@ impl ActorSystem {
 
     /// Kills n consumer threads.
     pub fn terminate_threads(&self, n: u32) {
-        for _ in 0..n {
-            self.terminate_thread();
-        }
+        self.inner.terminate_threads(n);
     }
 }
 
 impl Clone for ActorSystem {
     fn clone(&self) -> ActorSystem {
         ActorSystem {
-            name: self.name.clone(),
-            consumer_threads_sender: self.consumer_threads_sender.clone(),
-            consumer_threads_receiver: self.consumer_threads_receiver.clone(),
-            actors_queue_sender: self.actors_queue_sender.clone(),
-            actors_queue_receiver: self.actors_queue_receiver.clone(),
-            cthulhu: self.cthulhu.clone(),
-            user_actor: Mutex::new(self.user_actor.lock().unwrap().clone()),
+            inner: self.inner.clone(),
         }
+    }
+}
+
+struct InnerActorSystem {
+    name: String,
+    // For now we will have the worker pool in the system.
+    // TODO(gamazeps): find a way to have a clean way to separate system and user threads.
+    consumer_threads_sender: Mutex<Sender<()>>,
+    consumer_threads_receiver: Arc<Mutex<Receiver<()>>>,
+    n_threads: Mutex<u32>,
+    // Sends Canreceive to be handled on that channel.
+    actors_queue_sender: Mutex<Sender<Arc<CanReceive>>>,
+    // Receiving end to give to the thread pool.
+    actors_queue_receiver: Arc<Mutex<Receiver<Arc<CanReceive>>>>,
+    cthulhu: Mutex<Option<Arc<Cthulhu>>>,
+    user_actor: Mutex<Option<UserActorRef>>,
+}
+
+impl InnerActorSystem {
+    fn new(name: String) -> InnerActorSystem {
+        let (tx_queue, rx_queue) = channel();
+        let (tx_thread, rx_thread) = channel();
+        InnerActorSystem {
+            name: name,
+            consumer_threads_sender: Mutex::new(tx_thread),
+            consumer_threads_receiver: Arc::new(Mutex::new(rx_thread)),
+            n_threads: Mutex::new(0u32),
+            actors_queue_sender: Mutex::new(tx_queue),
+            actors_queue_receiver: Arc::new(Mutex::new(rx_queue)),
+            cthulhu: Mutex::new(None),
+            user_actor: Mutex::new(None),
+        }
+    }
+
+    /// Spawns an Actor of type A, created using the Props given.
+    fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>, name: String) -> Arc<ActorRef<Args, M, A>> {
+        // Not having the user actor in a Mutex in ok because the actor_of function already has
+        // mutual exclusion, so we are in the clear.
+        match self.user_actor.lock().unwrap().clone() {
+            Some(user_actor) => user_actor.actor_of(props, name),
+            None => panic!("The user actor is not initialised"),
+        }
+    }
+
+    /// Shuts the actor system down.
+    fn shutdown(&self) {
+        // We have to get this out of the mutex, because terminate_threads would deadlock on
+        // n_thread.
+        let n = {*self.n_threads.lock().unwrap()};
+        self.terminate_threads(n);
+        *self.user_actor.lock().unwrap() = None;
+        *self.cthulhu.lock().unwrap() = None;
+    }
+
+    /// Enqueues the given Actor on the queue of Actors with something to handle.
+    fn enqueue_actor<Args: Message, M: Message, A: Actor<M> + 'static>(&self, actor_ref: Arc<ActorRef<Args, M, A>>) {
+        match self.actors_queue_sender.lock().unwrap().send(actor_ref) {
+            Ok(_) => return,
+            Err(_) => {
+                self.shutdown();
+                panic!("The communication channel for messages is disconnected, this is bad!");
+            },
+        }
+    }
+
+    /// Kills a consumer thread of the `ActorSystem`.
+    fn terminate_thread(&self) {
+        let _ = self.consumer_threads_sender.lock().unwrap().send(());
+        *self.n_threads.lock().unwrap() -= 1;
+    }
+
+    /// Kills n consumer threads.
+    fn terminate_threads(&self, n: u32) {
+        for _ in 0..n {
+            self.terminate_thread();
+        }
+    }
+}
+
+impl Drop for InnerActorSystem {
+    fn drop(&mut self) {
+        println!("Dropping the {} actor system.", self.name);
     }
 }

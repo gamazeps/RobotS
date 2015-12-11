@@ -199,7 +199,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
     fn path(&self) -> Arc<String> {
         let inner = unwrap_inner!(self.inner_cell,
                                   {
-                                      panic!("Tried to get the monitored actors from the context of
+                                      panic!("Tried to get the path from the context of
                                              a no longer existing actor");
                                   });
         inner.name.clone()

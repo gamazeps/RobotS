@@ -69,4 +69,5 @@ fn main() {
     }).await();
 
     std::thread::sleep(Duration::from_millis(100));
+    actor_system.shutdown();
 }
