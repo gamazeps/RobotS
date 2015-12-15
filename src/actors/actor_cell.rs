@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
-use actors::{Actor, ActorRef, ActorSystem, CanReceive, Message, Props};
+use actors::{Actor, ActorPath, ActorRef, ActorSystem, CanReceive, Message, Props};
 
 enum Ref<T> {
     StrongRef(Arc<T>),
@@ -42,9 +42,11 @@ impl<Args: Message, M: Message, A: Actor<M>> Clone for ActorCell<Args, M, A> {
 
 impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorCell<Args, M, A> {
     /// Creates a new ActorCell.
-    pub fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem, father: Arc<CanReceive>, name: Arc<String>) -> ActorCell<Args, M, A> {
+    pub fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem, father: Arc<CanReceive>,
+               name: Arc<String>, path: ActorPath) -> ActorCell<Args, M, A> {
         ActorCell {
-            inner_cell: Ref::StrongRef(Arc::new(InnerActorCell::new(actor, props, system, father, name))),
+            inner_cell: Ref::StrongRef(Arc::new(InnerActorCell::new(actor, props, system,
+                                                                    father, name, path))),
         }
     }
 
@@ -130,13 +132,15 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
                                   });
         let actor = props.create();
         let name = Arc::new(name);
-        let inner_cell = InnerActorCell::new(actor, props, inner.system.clone(), self.actor_ref(), name.clone());
+        let path = Arc::new((*inner.path).clone() + "/" + &*name.clone());
+        let inner_cell = InnerActorCell::new(actor, props, inner.system.clone(),
+                                             self.actor_ref(), name, path.clone());
         let actor_cell = ActorCell {
             inner_cell: Ref::StrongRef(Arc::new(inner_cell)),
         };
-        let internal_ref = ActorRef::with_cell(actor_cell, name.clone());
+        let internal_ref = ActorRef::with_cell(actor_cell, path.clone());
         let external_ref = Arc::new(internal_ref.clone());
-        {inner.children.lock().unwrap().push((name.clone(), Arc::new(internal_ref)));}
+        {inner.children.lock().unwrap().push((path.clone(), Arc::new(internal_ref)));}
         {inner.monitoring.lock().unwrap().push(external_ref.clone());}
         external_ref.receive_system_message(SystemMessage::Start);
         external_ref
@@ -202,7 +206,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> 
                                       panic!("Tried to get the path from the context of
                                              a no longer existing actor");
                                   });
-        inner.name.clone()
+        inner.path.clone()
     }
 }
 
@@ -291,7 +295,8 @@ struct InnerActorCell<Args: Message, M: Message, A: Actor<M> + 'static> {
     system_mailbox: Mutex<VecDeque<SystemMessage>>,
     props: Props<Args, M, A>,
     system: ActorSystem,
-    name: Arc<String>,
+    _name: Arc<String>,
+    path: ActorPath,
     current_sender: Mutex<Option<Arc<CanReceive>>>,
     busy: Mutex<()>,
     father: Arc<CanReceive>,
@@ -302,14 +307,17 @@ struct InnerActorCell<Args: Message, M: Message, A: Actor<M> + 'static> {
 }
 
 impl<Args: Message, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A> {
-    fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem, father: Arc<CanReceive>, name: Arc<String>) -> InnerActorCell<Args, M, A> {
+    fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem,
+           father: Arc<CanReceive>, name: Arc<String>,
+           path: ActorPath) -> InnerActorCell<Args, M, A> {
         InnerActorCell {
             actor: RwLock::new(actor),
             mailbox: Mutex::new(VecDeque::new()),
             system_mailbox: Mutex::new(VecDeque::new()),
             props: props,
             system: system,
-            name: name,
+            _name: name,
+            path: path,
             current_sender: Mutex::new(None),
             busy: Mutex::new(()),
             father: father.clone(),
@@ -413,6 +421,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> Drop for InnerActorCell<A
         // FIXME(gamazeps) Looking at the logs it seems as though fathers are killed before their
         // children, that is not the intended behaviour.
         let actor = self.actor.write().unwrap();
+        println!("Actor {} is dropped", *self._name);
         actor.post_stop();
     }
 }

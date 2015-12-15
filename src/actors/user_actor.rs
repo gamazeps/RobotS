@@ -27,7 +27,7 @@ impl UserActorRef {
         let props = Props::new(Arc::new(InternalUserActor::new), ());
         let actor = props.create();
         let name = Arc::new("/user".to_owned());
-        let actor_cell = ActorCell::new(actor, props, system, cthulhu, name.clone());
+        let actor_cell = ActorCell::new(actor, props, system, cthulhu, name.clone(), name.clone());
         UserActorRef {
             actor_cell: actor_cell,
             path: name.clone(),
