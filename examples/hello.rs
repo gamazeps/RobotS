@@ -3,7 +3,7 @@ extern crate robots;
 use std::sync::Arc;
 use std::time::Duration;
 
-use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props, Message};
+use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Props};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Greetings {
@@ -14,12 +14,12 @@ enum Greetings {
 struct HelloWorld;
 
 impl Actor<Greetings> for HelloWorld {
-    fn pre_start<Args: Message>(&self, context: ActorCell<Args, Greetings, HelloWorld>) {
+    fn pre_start<Args: Arguments>(&self, context: ActorCell<Args, Greetings, HelloWorld>) {
         let props = Props::new(Arc::new(Greeter::new), ());
         let greeter = context.actor_of(props, "greeter".to_owned());
         context.tell(greeter, Greetings::Greet);
     }
-    fn receive<Args: Message>(&self, message: Greetings, context: ActorCell<Args, Greetings, HelloWorld>) {
+    fn receive<Args: Arguments>(&self, message: Greetings, context: ActorCell<Args, Greetings, HelloWorld>) {
         if message == Greetings::Done {
             context.stop(context.sender());
         }
@@ -35,7 +35,7 @@ impl HelloWorld {
 struct Greeter;
 
 impl Actor<Greetings> for Greeter {
-    fn receive<Args: Message>(&self, message: Greetings, context: ActorCell<Args, Greetings, Greeter>) {
+    fn receive<Args: Arguments>(&self, message: Greetings, context: ActorCell<Args, Greetings, Greeter>) {
         if message == Greetings::Greet {
             println!("Hello World");
             context.tell(context.sender(), Greetings::Done);

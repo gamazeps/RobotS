@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 
-use actors::{Actor, ActorRef, CanReceive, Message, Props};
+use actors::{Actor, ActorRef, Arguments, CanReceive, Message, Props};
 use actors::cthulhu::Cthulhu;
 use actors::user_actor::UserActorRef;
 
@@ -54,7 +54,7 @@ impl ActorSystem {
     }
 
     /// Spawns an Actor of type A, created using the Props given.
-    pub fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>, name: String) -> Arc<ActorRef<Args, M, A>> {
+    pub fn actor_of<Args: Arguments, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>, name: String) -> Arc<ActorRef<Args, M, A>> {
         self.inner.actor_of(props, name)
     }
 
@@ -64,7 +64,7 @@ impl ActorSystem {
     }
 
     /// Enqueues the given Actor on the queue of Actors with something to handle.
-    pub fn enqueue_actor<Args: Message, M: Message, A: Actor<M> + 'static>(&self, actor_ref: Arc<ActorRef<Args, M, A>>) {
+    pub fn enqueue_actor<Args: Arguments, M: Message, A: Actor<M> + 'static>(&self, actor_ref: Arc<ActorRef<Args, M, A>>) {
         self.inner.enqueue_actor(actor_ref);
     }
 
@@ -82,7 +82,7 @@ impl ActorSystem {
                 // If we received a () we kill the thread.
                 match rx.lock().unwrap().try_recv() {
                     Ok(_) | Err(TryRecvError::Disconnected) => {
-                        println!("Terminating a consumer thread.");
+                        //println!("Terminating a consumer thread.");
                         relauncher.cancel();
                         break;
                     },
@@ -136,7 +136,7 @@ impl Clone for ActorSystem {
 }
 
 struct InnerActorSystem {
-    name: String,
+    _name: String,
     // For now we will have the worker pool in the system.
     // TODO(gamazeps): find a way to have a clean way to separate system and user threads.
     consumer_threads_sender: Mutex<Sender<()>>,
@@ -155,7 +155,7 @@ impl InnerActorSystem {
         let (tx_queue, rx_queue) = channel();
         let (tx_thread, rx_thread) = channel();
         InnerActorSystem {
-            name: name,
+            _name: name,
             consumer_threads_sender: Mutex::new(tx_thread),
             consumer_threads_receiver: Arc::new(Mutex::new(rx_thread)),
             n_threads: Mutex::new(0u32),
@@ -167,7 +167,7 @@ impl InnerActorSystem {
     }
 
     /// Spawns an Actor of type A, created using the Props given.
-    fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>, name: String) -> Arc<ActorRef<Args, M, A>> {
+    fn actor_of<Args: Arguments, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>, name: String) -> Arc<ActorRef<Args, M, A>> {
         // Not having the user actor in a Mutex in ok because the actor_of function already has
         // mutual exclusion, so we are in the clear.
         match self.user_actor.lock().unwrap().clone() {
@@ -187,7 +187,7 @@ impl InnerActorSystem {
     }
 
     /// Enqueues the given Actor on the queue of Actors with something to handle.
-    fn enqueue_actor<Args: Message, M: Message, A: Actor<M> + 'static>(&self, actor_ref: Arc<ActorRef<Args, M, A>>) {
+    fn enqueue_actor<Args: Arguments, M: Message, A: Actor<M> + 'static>(&self, actor_ref: Arc<ActorRef<Args, M, A>>) {
         match self.actors_queue_sender.lock().unwrap().send(actor_ref) {
             Ok(_) => return,
             Err(_) => {
@@ -213,6 +213,6 @@ impl InnerActorSystem {
 
 impl Drop for InnerActorSystem {
     fn drop(&mut self) {
-        println!("Dropping the {} actor system.", self.name);
+        //println!("Dropping the {} actor system.", self.name);
     }
 }

@@ -1,7 +1,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
-use actors::{Actor, ActorPath, ActorRef, ActorSystem, CanReceive, Message, Props};
+use actors::{Actor, ActorPath, ActorRef, ActorSystem, Arguments, CanReceive, Message, Props};
 
 enum Ref<T> {
     StrongRef(Arc<T>),
@@ -23,12 +23,12 @@ macro_rules! unwrap_inner {
 }
 
 /// Main interface for accessing the main Actor information (system, mailbox, sender, props...).
-pub struct ActorCell<Args: Message, M: Message, A: Actor<M> + 'static> {
+pub struct ActorCell<Args: Arguments, M: Message, A: Actor<M> + 'static> {
     // We have an inner structure in order to be able to generate new ActorCell easily.
     inner_cell: Ref<InnerActorCell<Args, M, A>>,
 }
 
-impl<Args: Message, M: Message, A: Actor<M>> Clone for ActorCell<Args, M, A> {
+impl<Args: Arguments, M: Message, A: Actor<M>> Clone for ActorCell<Args, M, A> {
     fn clone(&self) -> ActorCell<Args, M, A> {
         ActorCell {
             inner_cell: Ref::WeakRef(match self.inner_cell {
@@ -40,7 +40,7 @@ impl<Args: Message, M: Message, A: Actor<M>> Clone for ActorCell<Args, M, A> {
 }
 
 
-impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorCell<Args, M, A> {
+impl<Args: Arguments, M: Message, A: Actor<M> + 'static> ActorCell<Args, M, A> {
     /// Creates a new ActorCell.
     pub fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem, father: Arc<CanReceive>,
                name: Arc<String>, path: ActorPath) -> ActorCell<Args, M, A> {
@@ -84,7 +84,7 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorCell<Args, M, A> {
 }
 
 /// This is the API that Actors are supposed to see of their context while handling a message.
-pub trait ActorContext<Args: Message, M: Message, A: Actor<M> + 'static> {
+pub trait ActorContext<Args: Arguments, M: Message, A: Actor<M> + 'static> {
     /// Returns an ActorRef of the Actor.
     fn actor_ref(&self) -> Arc<ActorRef<Args, M, A>>;
 
@@ -92,7 +92,7 @@ pub trait ActorContext<Args: Message, M: Message, A: Actor<M> + 'static> {
     ///
     /// Note that the supervision is not yet implemented so it does the same as creating an actor
     /// through the actor system.
-    fn actor_of<ArgsBis: Message, MBis: Message, ABis: Actor<MBis> + 'static>(&self, props: Props<ArgsBis, MBis, ABis>, name: String) -> Arc<ActorRef<ArgsBis, MBis, ABis>>;
+    fn actor_of<ArgsBis: Arguments, MBis: Message, ABis: Actor<MBis> + 'static>(&self, props: Props<ArgsBis, MBis, ABis>, name: String) -> Arc<ActorRef<ArgsBis, MBis, ABis>>;
 
     /// Sends a Message to the targeted CanReceive<M>.
     fn tell<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo);
@@ -119,12 +119,12 @@ pub trait ActorContext<Args: Message, M: Message, A: Actor<M> + 'static> {
     fn path(&self) -> Arc<String>;
 }
 
-impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> for ActorCell<Args, M, A> {
+impl<Args: Arguments, M: Message, A: Actor<M> + 'static> ActorContext<Args, M, A> for ActorCell<Args, M, A> {
     fn actor_ref(&self) -> Arc<ActorRef<Args, M, A>> {
         Arc::new(ActorRef::with_cell(self.clone(), self.path()))
     }
 
-    fn actor_of<ArgsBis: Message, MBis: Message, ABis: Actor<MBis> + 'static>(&self, props: Props<ArgsBis, MBis, ABis>, name: String) -> Arc<ActorRef<ArgsBis, MBis, ABis>> {
+    fn actor_of<ArgsBis: Arguments, MBis: Message, ABis: Actor<MBis> + 'static>(&self, props: Props<ArgsBis, MBis, ABis>, name: String) -> Arc<ActorRef<ArgsBis, MBis, ABis>> {
         let inner = unwrap_inner!(self.inner_cell,
                                   {
                                     panic!("Tried to create an actor from the context of a no longer
@@ -289,7 +289,7 @@ pub enum ControlMessage {
     KillMe(Arc<CanReceive>),
 }
 
-struct InnerActorCell<Args: Message, M: Message, A: Actor<M> + 'static> {
+struct InnerActorCell<Args: Arguments, M: Message, A: Actor<M> + 'static> {
     actor: RwLock<A>,
     mailbox: Mutex<VecDeque<Envelope<M>>>,
     system_mailbox: Mutex<VecDeque<SystemMessage>>,
@@ -306,7 +306,7 @@ struct InnerActorCell<Args: Message, M: Message, A: Actor<M> + 'static> {
     _monitored: Mutex<Vec<Arc<CanReceive>>>,
 }
 
-impl<Args: Message, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A> {
+impl<Args: Arguments, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A> {
     fn new(actor: A, props: Props<Args, M, A>, system: ActorSystem,
            father: Arc<CanReceive>, name: Arc<String>,
            path: ActorPath) -> InnerActorCell<Args, M, A> {
@@ -416,12 +416,12 @@ impl<Args: Message, M: Message, A: Actor<M> + 'static> InnerActorCell<Args, M, A
     }
 }
 
-impl<Args: Message, M: Message, A: Actor<M> + 'static> Drop for InnerActorCell<Args, M, A> {
+impl<Args: Arguments, M: Message, A: Actor<M> + 'static> Drop for InnerActorCell<Args, M, A> {
     fn drop(&mut self) {
         // FIXME(gamazeps) Looking at the logs it seems as though fathers are killed before their
         // children, that is not the intended behaviour.
         let actor = self.actor.write().unwrap();
-        println!("Actor {} is dropped", *self._name);
+        //println!("Actor {} is dropped", *self._name);
         actor.post_stop();
     }
 }

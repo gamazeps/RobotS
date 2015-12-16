@@ -5,7 +5,7 @@ use self::eventual::Future;
 use std::any::Any;
 use std::sync::Arc;
 
-use actors::{Actor, ActorContext, ControlMessage, InnerMessage, Message, SystemMessage};
+use actors::{Actor, ActorContext, Arguments, ControlMessage, InnerMessage, Message, SystemMessage};
 use actors::actor_cell::ActorCell;
 use actors::ask::AskPattern;
 
@@ -17,18 +17,18 @@ pub type ActorPath = Arc<String>;
 ///
 /// The only thing it can do is send and receive messages (according to the actor model in defined
 /// by Hewitt).
-pub struct ActorRef<Args: Message, M: Message, A: Actor<M> + 'static> {
+pub struct ActorRef<Args: Arguments, M: Message, A: Actor<M> + 'static> {
     actor_cell: ActorCell<Args, M, A>,
     path: ActorPath,
 }
 
-impl<Args: Message, M: Message, A: Actor<M> + 'static> Clone for ActorRef<Args, M, A> {
+impl<Args: Arguments, M: Message, A: Actor<M> + 'static> Clone for ActorRef<Args, M, A> {
     fn clone(&self) -> ActorRef<Args, M, A> {
         ActorRef::with_cell(self.actor_cell.clone(), self.path().clone())
     }
 }
 
-impl<Args: Message, M: Message, A: Actor<M> + 'static> ActorRef<Args, M, A> {
+impl<Args: Arguments, M: Message, A: Actor<M> + 'static> ActorRef<Args, M, A> {
     /// Creates an ActorRef<Args, M, A> with the given ActorCell<Args, M, A>.
     pub fn with_cell(cell: ActorCell<Args, M, A>, path: ActorPath) -> ActorRef<Args, M, A> {
         ActorRef {
@@ -71,7 +71,7 @@ pub trait CanReceive: Send + Sync {
     }
 }
 
-impl<Args: Message, M: Message, A: Actor<M> + 'static> CanReceive for ActorRef<Args, M, A> {
+impl<Args: Arguments, M: Message, A: Actor<M> + 'static> CanReceive for ActorRef<Args, M, A> {
     fn receive(&self, message: Box<Any>, sender: Arc<CanReceive>) {
         match message.downcast::<ControlMessage>() {
             Ok(message) => {

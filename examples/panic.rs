@@ -3,7 +3,7 @@ extern crate robots;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props, Message};
+use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Props};
 
 #[derive(Copy, Clone)]
 enum InternalStateMessage {
@@ -18,7 +18,7 @@ struct InternalState {
 }
 
 impl Actor<InternalStateMessage> for InternalState {
-    fn receive<Args: Message>(&self, message: InternalStateMessage, _context: ActorCell<Args, InternalStateMessage, InternalState>) {
+    fn receive<Args: Arguments>(&self, message: InternalStateMessage, _context: ActorCell<Args, InternalStateMessage, InternalState>) {
         match message {
             InternalStateMessage::Get => println!("internal state: {}", *self.counter.lock().unwrap()),
             InternalStateMessage::Set(num) => *self.counter.lock().unwrap() = num,

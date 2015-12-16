@@ -3,13 +3,13 @@ extern crate robots;
 use std::sync::Arc;
 use std::time::Duration;
 
-use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props, Message};
+use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Props};
 
 /// Basic factorial.
 struct Factorial;
 
 impl Actor<(u32, u32)> for Factorial {
-    fn receive<Args: Message>(&self, message: (u32, u32), context: ActorCell<Args, (u32, u32), Factorial>) {
+    fn receive<Args: Arguments>(&self, message: (u32, u32), context: ActorCell<Args, (u32, u32), Factorial>) {
         let (i, j) = message;
         if i == 0 {
             println!("factorial: {}", j);

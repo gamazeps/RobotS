@@ -8,7 +8,7 @@ use rand::Rng;
 use std::sync::Arc;
 use std::time::Duration;
 
-use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props, Message};
+use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Props};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Exchanges {
@@ -19,7 +19,7 @@ enum Exchanges {
 struct Requester;
 
 impl Actor<()> for Requester {
-    fn receive<Args: Message>(&self, _message: (), _context: ActorCell<Args, (), Requester>) {
+    fn receive<Args: Arguments>(&self, _message: (), _context: ActorCell<Args, (), Requester>) {
     }
 }
 
@@ -34,7 +34,7 @@ struct Answerer {
 }
 
 impl Actor<Exchanges> for Answerer {
-    fn receive<Args: Message>(&self, message: Exchanges, context: ActorCell<Args, Exchanges, Answerer>) {
+    fn receive<Args: Arguments>(&self, message: Exchanges, context: ActorCell<Args, Exchanges, Answerer>) {
         if message == Exchanges::Request {
             context.tell(context.sender(), Exchanges::Answer(self.secret));
         }

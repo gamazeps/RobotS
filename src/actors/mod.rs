@@ -27,10 +27,15 @@ mod cthulhu;
 mod user_actor;
 
 
-/// Trait to be implemented by messages and args, this is automatically given if a struct is
+/// Trait to be implemented by messages, this is automatically given if a struct is
 /// already `Copy + Send + Sync + 'static + Any`.
 pub trait Message: Copy + Send + Sync + 'static + Any {}
 impl<T> Message for T where T: Copy + Send + Sync + 'static + Any {}
+
+/// Trait to be implemented by args, this is automatically given if a struct is
+/// already `Clone + Sync + 'static + Any`.
+pub trait Arguments: Clone + Send + Sync + 'static {}
+impl<T> Arguments for T where T: Clone + Send + Sync + 'static {}
 
 /// This is the trait to implement to become an Actor.
 ///
@@ -59,7 +64,7 @@ pub trait Actor<M: Message>: Send + Sync + Sized {
     /// struct MyActor;
     ///
     /// impl Actor for MyActor {
-    ///     fn receive<Args: Message>
+    ///     fn receive<Args: Arguments>
     ///         (&self, message: Message, _context: ActorCell<Args, MyActor>) {
     ///         match message {
     ///             Message::Dummy => context.tell(context.sender(), Message::Dummy),
@@ -67,19 +72,18 @@ pub trait Actor<M: Message>: Send + Sync + Sized {
     ///         }
     ///     }
     /// }
-    fn receive<Args: Message>(&self, message: M, context: ActorCell<Args, M, Self>);
-
+    fn receive<Args: Arguments>(&self, message: M, context: ActorCell<Args, M, Self>);
 
     /// Method called when a monitored actor is terminated.  
     /// This is put in a separated method because match in rust must check all variations and we
     /// chose not to force the user to make a case for terminations if it doesn not monitor any
     /// actor.
-    fn receive_termination<Args: Message>(&self, _context: ActorCell<Args, M, Self>) {
+    fn receive_termination<Args: Arguments>(&self, _context: ActorCell<Args, M, Self>) {
         panic!("Not implemented");
     }
 
     /// Method called before the Actor is started.
-    fn pre_start<Args: Message>(&self, _context: ActorCell<Args, M, Self>) {
+    fn pre_start<Args: Arguments>(&self, _context: ActorCell<Args, M, Self>) {
     }
 
     /// Method called after the Actor is stopped.
@@ -87,12 +91,12 @@ pub trait Actor<M: Message>: Send + Sync + Sized {
     }
 
     /// Method called before the Actor is restarted.
-    fn pre_restart<Args: Message>(&self, _context: ActorCell<Args, M, Self>) {
+    fn pre_restart<Args: Arguments>(&self, _context: ActorCell<Args, M, Self>) {
         self.post_stop();
     }
 
     /// Method called after the Actor is restarted.
-    fn post_restart<Args: Message>(&self, context: ActorCell<Args, M, Self>) {
+    fn post_restart<Args: Arguments>(&self, context: ActorCell<Args, M, Self>) {
         self.pre_start(context);
     }
 }

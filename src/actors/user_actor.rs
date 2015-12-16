@@ -8,6 +8,7 @@ use actors::{
     ActorPath,
     ActorRef,
     ActorSystem,
+    Arguments,
     CanReceive,
     ControlMessage,
     InnerMessage,
@@ -35,7 +36,7 @@ impl UserActorRef {
     }
 
     /// Creates an actor for the user.
-    pub fn actor_of<Args: Message, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>, name: String) -> Arc<ActorRef<Args, M, A>> {
+    pub fn actor_of<Args: Arguments, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>, name: String) -> Arc<ActorRef<Args, M, A>> {
         self.actor_cell.actor_of(props, name)
     }
 }
@@ -91,5 +92,5 @@ impl InternalUserActor {
 
 impl Actor<()> for InternalUserActor {
     // The recieve function is currently a dummy.
-    fn receive<Args: Message>(&self, _message: (), _context: ActorCell<Args, (), InternalUserActor>) {}
+    fn receive<Args: Arguments>(&self, _message: (), _context: ActorCell<Args, (), InternalUserActor>) {}
 }
