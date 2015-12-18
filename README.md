@@ -1,6 +1,7 @@
 # RobotS
 
 [![Build Status](https://travis-ci.org/gamazeps/RobotS.svg?branch=travis__test)](https://travis-ci.org/gamazeps/RobotS)
+[![Coverage Status](https://coveralls.io/repos/gamazeps/RobotS/badge.svg?branch=master&service=github)](https://coveralls.io/github/gamazeps/RobotS?branch=master)
 
 Robots is a pure rust actor system library, it is meant to be a close implementation of [akka](http://akka.io).
 
