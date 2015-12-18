@@ -22,3 +22,7 @@ path = "src/lib.rs"
 [[test]]
 name = "test"
 path = "test/test.rs"
+
+[[bench]]
+name = "bench"
+path = "test/bench.rs"
