@@ -10,16 +10,19 @@ use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Pro
 
 use test::Bencher;
 
+#[derive(Copy, Clone, PartialEq)]
+enum BenchMessage {
+    Nothing,
+    Over,
+}
+
 struct InternalState {
-    counter: Mutex<u32>,
     sender: Arc<Mutex<Sender<()>>>,
 }
 
-impl Actor<()> for InternalState {
-    fn receive<Args: Arguments>(&self, _message: (), _context: ActorCell<Args, (), InternalState>) {
-        let mut counter = self.counter.lock().unwrap();
-        *counter += 1;
-        if *counter >= 1_000_000 {
+impl Actor<BenchMessage> for InternalState {
+    fn receive<Args: Arguments>(&self, message: BenchMessage, _context: ActorCell<Args, BenchMessage, InternalState>) {
+        if message == BenchMessage::Over {
             let _ = self.sender.lock().unwrap().send(());
         }
     }
@@ -28,7 +31,6 @@ impl Actor<()> for InternalState {
 impl InternalState {
     fn new(sender: Arc<Mutex<Sender<()>>>) -> InternalState {
         InternalState {
-            counter: Mutex::new(0),
             sender: sender,
         }
     }
@@ -38,7 +40,7 @@ impl InternalState {
 #[bench]
 fn send_1000_messages(b: &mut Bencher) {
     let actor_system = ActorSystem::new("test".to_owned());
-    actor_system.spawn_threads(1);
+    actor_system.spawn_threads(2);
 
     let (tx, rx) = channel();
     let tx = Arc::new(Mutex::new(tx));
@@ -48,9 +50,10 @@ fn send_1000_messages(b: &mut Bencher) {
     let actor_ref_2 = actor_system.actor_of(props.clone(), "receiver".to_owned());
 
     b.iter(|| {
-        for _ in 0..1_000_001 {
-            actor_ref_1.tell_to(actor_ref_2.clone(), ());
+        for _ in 0..1_000 {
+            actor_ref_1.tell_to(actor_ref_2.clone(), BenchMessage::Nothing);
         }
+        actor_ref_1.tell_to(actor_ref_2.clone(), BenchMessage::Over);
         let _ = rx.recv();
     });
 
