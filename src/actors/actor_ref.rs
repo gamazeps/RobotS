@@ -43,7 +43,10 @@ impl<Args: Arguments, M: Message, A: Actor<M> + 'static> ActorRef<Args, M, A> {
     }
 
     /// Sends a Message to a CanReceive<Message>.
-    pub fn ask_to<MessageTo: Message, V: Message, E: Send + 'static>(&self, to: Arc<CanReceive>, message: MessageTo) -> Future<V, E>{
+    pub fn ask_to<MessageTo: Message, V: Message, E: Send + 'static>(&self,
+                                                                     to: Arc<CanReceive>,
+                                                                     message: MessageTo)
+                                                                     -> Future<V, E> {
         self.actor_cell.ask(to, message)
     }
 }
@@ -77,15 +80,17 @@ impl<Args: Arguments, M: Message, A: Actor<M> + 'static> CanReceive for ActorRef
             Ok(message) => {
                 self.actor_cell.receive_message(InnerMessage::Control(*message), sender);
                 return;
-            },
+            }
             Err(message) => {
                 match message.downcast::<M>() {
-                    Ok(message) => self.actor_cell.receive_message(InnerMessage::Message(*message), sender),
+                    Ok(message) => {
+                        self.actor_cell.receive_message(InnerMessage::Message(*message), sender)
+                    }
                     Err(_) => {
                         println!("Send a message of the wrong type to an actor");
-                    },
+                    }
                 }
-            },
+            }
         }
     }
 

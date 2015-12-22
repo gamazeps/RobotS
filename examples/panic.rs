@@ -14,13 +14,17 @@ enum InternalStateMessage {
 
 /// Actor with an internal state that can me modified.
 struct InternalState {
-    counter: Mutex<u32>
+    counter: Mutex<u32>,
 }
 
 impl Actor<InternalStateMessage> for InternalState {
-    fn receive<Args: Arguments>(&self, message: InternalStateMessage, _context: ActorCell<Args, InternalStateMessage, InternalState>) {
+    fn receive<Args: Arguments>(&self,
+                                message: InternalStateMessage,
+                                _context: ActorCell<Args, InternalStateMessage, InternalState>) {
         match message {
-            InternalStateMessage::Get => println!("internal state: {}", *self.counter.lock().unwrap()),
+            InternalStateMessage::Get => {
+                println!("internal state: {}", *self.counter.lock().unwrap())
+            }
             InternalStateMessage::Set(num) => *self.counter.lock().unwrap() = num,
             InternalStateMessage::Panic => panic!("actor panicked"),
         }
@@ -39,7 +43,8 @@ fn main() {
 
     let restarted_props = Props::new(Arc::new(InternalState::new), 3);
     let restarted_actor_ref_1 = actor_system.actor_of(restarted_props.clone(), "sender".to_owned());
-    let restarted_actor_ref_2 = actor_system.actor_of(restarted_props.clone(), "receiver".to_owned());
+    let restarted_actor_ref_2 = actor_system.actor_of(restarted_props.clone(),
+                                                      "receiver".to_owned());
 
     restarted_actor_ref_1.tell_to(restarted_actor_ref_2.clone(), InternalStateMessage::Get);
     restarted_actor_ref_1.tell_to(restarted_actor_ref_2.clone(), InternalStateMessage::Set(7));

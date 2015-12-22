@@ -1,20 +1,8 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use actors::{
-    Actor,
-    ActorCell,
-    ActorContext,
-    ActorPath,
-    ActorRef,
-    ActorSystem,
-    Arguments,
-    CanReceive,
-    ControlMessage,
-    InnerMessage,
-    Message,
-    Props,
-    SystemMessage};
+use actors::{Actor, ActorCell, ActorContext, ActorPath, ActorRef, ActorSystem, Arguments,
+             CanReceive, ControlMessage, InnerMessage, Message, Props, SystemMessage};
 use actors::cthulhu::Cthulhu;
 
 pub struct UserActorRef {
@@ -36,7 +24,11 @@ impl UserActorRef {
     }
 
     /// Creates an actor for the user.
-    pub fn actor_of<Args: Arguments, M: Message, A: Actor<M> + 'static>(&self, props: Props<Args, M, A>, name: String) -> Arc<ActorRef<Args, M, A>> {
+    pub fn actor_of<Args: Arguments, M: Message, A: Actor<M> + 'static>
+        (&self,
+         props: Props<Args, M, A>,
+         name: String)
+         -> Arc<ActorRef<Args, M, A>> {
         self.actor_cell.actor_of(props, name)
     }
 }
@@ -51,21 +43,23 @@ impl Clone for UserActorRef {
 }
 
 impl CanReceive for UserActorRef {
-    // TODO(gamazeps) this is a copy of the code in src/actor_ref.rs, this is bad.
-    fn receive(&self, message: Box<Any>, sender: Arc<CanReceive >) {
+    // FIXME(gamazeps) this is a copy of the code in src/actor_ref.rs, this is bad.
+    fn receive(&self, message: Box<Any>, sender: Arc<CanReceive>) {
         match message.downcast::<ControlMessage>() {
             Ok(message) => {
                 self.actor_cell.receive_message(InnerMessage::Control(*message), sender);
                 return;
-            },
+            }
             Err(message) => {
                 match message.downcast::<()>() {
-                    Ok(message) => self.actor_cell.receive_message(InnerMessage::Message(*message), sender),
+                    Ok(message) => {
+                        self.actor_cell.receive_message(InnerMessage::Message(*message), sender)
+                    }
                     Err(_) => {
                         println!("Send a message of the wrong type to an actor");
-                    },
+                    }
                 }
-            },
+            }
         }
     }
 
@@ -92,5 +86,8 @@ impl InternalUserActor {
 
 impl Actor<()> for InternalUserActor {
     // The recieve function is currently a dummy.
-    fn receive<Args: Arguments>(&self, _message: (), _context: ActorCell<Args, (), InternalUserActor>) {}
+    fn receive<Args: Arguments>(&self,
+                                _message: (),
+                                _context: ActorCell<Args, (), InternalUserActor>) {
+    }
 }

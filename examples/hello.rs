@@ -19,7 +19,9 @@ impl Actor<Greetings> for HelloWorld {
         let greeter = context.actor_of(props, "greeter".to_owned());
         context.tell(greeter, Greetings::Greet);
     }
-    fn receive<Args: Arguments>(&self, message: Greetings, context: ActorCell<Args, Greetings, HelloWorld>) {
+    fn receive<Args: Arguments>(&self,
+                                message: Greetings,
+                                context: ActorCell<Args, Greetings, HelloWorld>) {
         if message == Greetings::Done {
             context.stop(context.sender());
         }
@@ -35,7 +37,9 @@ impl HelloWorld {
 struct Greeter;
 
 impl Actor<Greetings> for Greeter {
-    fn receive<Args: Arguments>(&self, message: Greetings, context: ActorCell<Args, Greetings, Greeter>) {
+    fn receive<Args: Arguments>(&self,
+                                message: Greetings,
+                                context: ActorCell<Args, Greetings, Greeter>) {
         if message == Greetings::Greet {
             println!("Hello World");
             context.tell(context.sender(), Greetings::Done);

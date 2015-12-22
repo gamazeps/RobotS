@@ -11,7 +11,7 @@ use robots::actors::{Actor, ActorSystem, ActorCell, Arguments, ActorContext, Pro
 #[derive(Debug, PartialEq)]
 enum Res {
     Ok,
-    Err
+    Err,
 }
 
 #[derive(Copy, Clone)]
@@ -27,7 +27,9 @@ struct InternalState {
 }
 
 impl Actor<InternalStateMessage> for InternalState {
-    fn receive<Args: Arguments>(&self, message: InternalStateMessage, context: ActorCell<Args, InternalStateMessage, InternalState>) {
+    fn receive<Args: Arguments>(&self,
+                                message: InternalStateMessage,
+                                context: ActorCell<Args, InternalStateMessage, InternalState>) {
         match message {
             InternalStateMessage::Get => context.tell(context.sender(), *self.last.lock().unwrap()),
             InternalStateMessage::Set(message) => {
@@ -92,11 +94,19 @@ fn recover_from_panic() {
     let answerer = actor_system.actor_of(props.clone(), "receiver".to_owned());
 
     requester.tell_to(answerer.clone(), InternalStateMessage::Set(10));
-    let res: u32 = requester.ask_to::<InternalStateMessage, u32, ()>(answerer.clone(), InternalStateMessage::Get).and_then(|x| Ok(x)).await().unwrap();
+    let res: u32 = requester.ask_to::<InternalStateMessage, u32, ()>(answerer.clone(),
+                                                                     InternalStateMessage::Get)
+                            .and_then(|x| Ok(x))
+                            .await()
+                            .unwrap();
     assert_eq!(10u32, res);
 
     requester.tell_to(answerer.clone(), InternalStateMessage::Panic);
-    let res: u32 = requester.ask_to::<InternalStateMessage, u32, ()>(answerer.clone(), InternalStateMessage::Get).and_then(|x| Ok(x)).await().unwrap();
+    let res: u32 = requester.ask_to::<InternalStateMessage, u32, ()>(answerer.clone(),
+                                                                     InternalStateMessage::Get)
+                            .and_then(|x| Ok(x))
+                            .await()
+                            .unwrap();
     assert_eq!(0u32, res);
 
     actor_system.shutdown();
