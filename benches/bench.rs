@@ -21,7 +21,9 @@ struct InternalState {
 }
 
 impl Actor<BenchMessage> for InternalState {
-    fn receive<Args: Arguments>(&self, message: BenchMessage, _context: ActorCell<Args, BenchMessage, InternalState>) {
+    fn receive<Args: Arguments>(&self,
+                                message: BenchMessage,
+                                _context: ActorCell<Args, BenchMessage, InternalState>) {
         if message == BenchMessage::Over {
             let _ = self.sender.lock().unwrap().send(());
         }
@@ -30,9 +32,7 @@ impl Actor<BenchMessage> for InternalState {
 
 impl InternalState {
     fn new(sender: Arc<Mutex<Sender<()>>>) -> InternalState {
-        InternalState {
-            sender: sender,
-        }
+        InternalState { sender: sender }
     }
 }
 
@@ -40,7 +40,7 @@ impl InternalState {
 #[bench]
 fn send_1000_messages(b: &mut Bencher) {
     let actor_system = ActorSystem::new("test".to_owned());
-    actor_system.spawn_threads(2);
+    actor_system.spawn_threads(1);
 
     let (tx, rx) = channel();
     let tx = Arc::new(Mutex::new(tx));
@@ -55,6 +55,34 @@ fn send_1000_messages(b: &mut Bencher) {
         }
         actor_ref_1.tell_to(actor_ref_2.clone(), BenchMessage::Over);
         let _ = rx.recv();
+    });
+
+    actor_system.shutdown();
+}
+
+struct Dummy;
+
+impl Actor<()> for Dummy {
+    fn receive<Args: Arguments>(&self, _message: (), _context: ActorCell<Args, (), Dummy>) {}
+}
+
+impl Dummy {
+    fn new(_: ()) -> Dummy {
+        Dummy
+    }
+}
+
+#[bench]
+fn create_1000_actors(b: &mut Bencher) {
+    let actor_system = ActorSystem::new("test".to_owned());
+    actor_system.spawn_threads(1);
+
+    let props = Props::new(Arc::new(Dummy::new), ());
+
+    b.iter(|| {
+        for i in 0..1_000 {
+            actor_system.actor_of(props.clone(), format!("{}", i));
+        }
     });
 
     actor_system.shutdown();
