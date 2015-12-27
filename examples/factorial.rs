@@ -1,5 +1,6 @@
 extern crate robots;
 
+use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -8,15 +9,17 @@ use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Pro
 /// Basic factorial.
 struct Factorial;
 
-impl Actor<(u32, u32)> for Factorial {
+impl Actor for Factorial {
     fn receive<Args: Arguments>(&self,
-                                message: (u32, u32),
-                                context: ActorCell<Args, (u32, u32), Factorial>) {
-        let (i, j) = message;
-        if i == 0 {
-            println!("factorial: {}", j);
-        } else {
-            context.tell(context.actor_ref(), (i - 1, j * i));
+                                message: Box<Any>,
+                                context: ActorCell<Args, Factorial>) {
+        if let Ok(message) = Box::<Any>::downcast::<(u32, u32)>(message) {
+            let (i, j) = *message;
+            if i == 0 {
+                println!("factorial: {}", j);
+            } else {
+                context.tell(context.actor_ref(), (i - 1, j * i));
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 extern crate robots;
 
+use std::any::Any;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -17,16 +18,18 @@ struct InternalState {
     counter: Mutex<u32>,
 }
 
-impl Actor<InternalStateMessage> for InternalState {
+impl Actor for InternalState {
     fn receive<Args: Arguments>(&self,
-                                message: InternalStateMessage,
-                                _context: ActorCell<Args, InternalStateMessage, InternalState>) {
-        match message {
-            InternalStateMessage::Get => {
-                println!("internal state: {}", *self.counter.lock().unwrap())
+                                message: Box<Any>,
+                                _context: ActorCell<Args, InternalState>) {
+        if let Ok(message) = Box::<Any>::downcast::<InternalStateMessage>(message) {
+            match *message {
+                InternalStateMessage::Get => {
+                    println!("internal state: {}", *self.counter.lock().unwrap())
+                }
+                InternalStateMessage::Set(num) => *self.counter.lock().unwrap() = num,
+                InternalStateMessage::Panic => panic!("actor panicked"),
             }
-            InternalStateMessage::Set(num) => *self.counter.lock().unwrap() = num,
-            InternalStateMessage::Panic => panic!("actor panicked"),
         }
     }
 }

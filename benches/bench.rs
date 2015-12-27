@@ -3,6 +3,7 @@
 extern crate robots;
 extern crate test;
 
+use std::any::Any;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender};
 
@@ -20,12 +21,14 @@ struct InternalState {
     sender: Arc<Mutex<Sender<()>>>,
 }
 
-impl Actor<BenchMessage> for InternalState {
+impl Actor for InternalState {
     fn receive<Args: Arguments>(&self,
-                                message: BenchMessage,
-                                _context: ActorCell<Args, BenchMessage, InternalState>) {
-        if message == BenchMessage::Over {
-            let _ = self.sender.lock().unwrap().send(());
+                                message: Box<Any>,
+                                _context: ActorCell<Args, InternalState>) {
+        if let Ok(message) = Box::<Any>::downcast::<BenchMessage>(message) {
+            if *message == BenchMessage::Over {
+                let _ = self.sender.lock().unwrap().send(());
+            }
         }
     }
 }
@@ -62,8 +65,8 @@ fn send_1000_messages(b: &mut Bencher) {
 
 struct Dummy;
 
-impl Actor<()> for Dummy {
-    fn receive<Args: Arguments>(&self, _message: (), _context: ActorCell<Args, (), Dummy>) {}
+impl Actor for Dummy {
+    fn receive<Args: Arguments>(&self, _message: Box<Any>, _context: ActorCell<Args, Dummy>) {}
 }
 
 impl Dummy {

@@ -1,24 +1,21 @@
-use std::marker::PhantomData;
 use std::sync::Arc;
 
-use actors::{Actor, Arguments, Message};
+use actors::{Actor, Arguments};
 
 /// Factory for `A`.
 ///
 /// It will always create an `A` with the same function and arguments.
 ///
 /// It is also thread safe, and thus we can respawn an Actor across different threads.
-pub struct Props<Args: Arguments, M: Message, A: Actor<M>> {
-    _phantom_message: PhantomData<M>,
+pub struct Props<Args: Arguments, A: Actor> {
     creator: Arc<Fn(Args) -> A + Sync + Send>,
     args: Args,
 }
 
-impl<Args: Arguments, M: Message, A: Actor<M>> Props<Args, M, A> {
+impl<Args: Arguments, A: Actor> Props<Args, A> {
     /// Creates a `Props` which is a factory for `A` with the `creator` function and `args` args.
-    pub fn new(creator: Arc<Fn(Args) -> A + Sync + Send>, args: Args) -> Props<Args, M, A> {
-        Props::<Args, M, A> {
-            _phantom_message: PhantomData,
+    pub fn new(creator: Arc<Fn(Args) -> A + Sync + Send>, args: Args) -> Props<Args, A> {
+        Props::<Args, A> {
             creator: creator,
             args: args,
         }
@@ -34,10 +31,9 @@ impl<Args: Arguments, M: Message, A: Actor<M>> Props<Args, M, A> {
     }
 }
 
-impl<Args: Arguments, M: Message, A: Actor<M>> Clone for Props<Args, M, A> {
-    fn clone(&self) -> Props<Args, M, A> {
-        Props::<Args, M, A> {
-            _phantom_message: PhantomData,
+impl<Args: Arguments, A: Actor> Clone for Props<Args, A> {
+    fn clone(&self) -> Props<Args, A> {
+        Props::<Args, A> {
             creator: self.creator.clone(),
             args: self.args.clone(),
         }

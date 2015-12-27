@@ -2,10 +2,9 @@ extern crate eventual;
 
 use self::eventual::Future;
 
-use std::any::Any;
 use std::sync::Arc;
 
-use actors::{Actor, ActorContext, Arguments, ControlMessage, InnerMessage, Message, SystemMessage};
+use actors::{Actor, ActorContext, Arguments, InnerMessage, Message, SystemMessage};
 use actors::actor_cell::ActorCell;
 use actors::ask::AskPattern;
 
@@ -17,20 +16,20 @@ pub type ActorPath = Arc<String>;
 ///
 /// The only thing it can do is send and receive messages (according to the actor model in defined
 /// by Hewitt).
-pub struct ActorRef<Args: Arguments, M: Message, A: Actor<M> + 'static> {
-    actor_cell: ActorCell<Args, M, A>,
+pub struct ActorRef<Args: Arguments, A: Actor + 'static> {
+    actor_cell: ActorCell<Args, A>,
     path: ActorPath,
 }
 
-impl<Args: Arguments, M: Message, A: Actor<M> + 'static> Clone for ActorRef<Args, M, A> {
-    fn clone(&self) -> ActorRef<Args, M, A> {
+impl<Args: Arguments, A: Actor + 'static> Clone for ActorRef<Args, A> {
+    fn clone(&self) -> ActorRef<Args, A> {
         ActorRef::with_cell(self.actor_cell.clone(), self.path().clone())
     }
 }
 
-impl<Args: Arguments, M: Message, A: Actor<M> + 'static> ActorRef<Args, M, A> {
-    /// Creates an ActorRef<Args, M, A> with the given ActorCell<Args, M, A>.
-    pub fn with_cell(cell: ActorCell<Args, M, A>, path: ActorPath) -> ActorRef<Args, M, A> {
+impl<Args: Arguments, A: Actor + 'static> ActorRef<Args, A> {
+    /// Creates an ActorRef<Args, A> with the given ActorCell<Args, A>.
+    pub fn with_cell(cell: ActorCell<Args, A>, path: ActorPath) -> ActorRef<Args, A> {
         ActorRef {
             actor_cell: cell,
             path: path,
@@ -38,11 +37,15 @@ impl<Args: Arguments, M: Message, A: Actor<M> + 'static> ActorRef<Args, M, A> {
     }
 
     /// Sends a Message to a CanReceive<Message>.
+    // Note that we do not need this to be generic and could be a Box<Any>, but it seems like a
+    // nicer API to use.
     pub fn tell_to<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo) {
         self.actor_cell.tell(to, message);
     }
 
     /// Sends a Message to a CanReceive<Message>.
+    // Note that we do not need this to be generic and could be a Box<Any>, but it seems like a
+    // nicer API to use.
     pub fn ask_to<MessageTo: Message, V: Message, E: Send + 'static>(&self,
                                                                      to: Arc<CanReceive>,
                                                                      message: MessageTo)
@@ -55,7 +58,7 @@ impl<Args: Arguments, M: Message, A: Actor<M> + 'static> ActorRef<Args, M, A> {
 /// Note that for the moment these are not typed, but it will be easy to add.
 pub trait CanReceive: Send + Sync {
     /// Puts the message in a mailbox and enqueues the CanReceive.
-    fn receive(&self, message: Box<Any>, sender: Arc<CanReceive>);
+    fn receive(&self, message: InnerMessage, sender: Arc<CanReceive>);
 
     /// Puts the system message in a mailbox and enqueues the CanReceive.
     fn receive_system_message(&self, system_message: SystemMessage);
@@ -74,24 +77,9 @@ pub trait CanReceive: Send + Sync {
     }
 }
 
-impl<Args: Arguments, M: Message, A: Actor<M> + 'static> CanReceive for ActorRef<Args, M, A> {
-    fn receive(&self, message: Box<Any>, sender: Arc<CanReceive>) {
-        match message.downcast::<ControlMessage>() {
-            Ok(message) => {
-                self.actor_cell.receive_message(InnerMessage::Control(*message), sender);
-                return;
-            }
-            Err(message) => {
-                match message.downcast::<M>() {
-                    Ok(message) => {
-                        self.actor_cell.receive_message(InnerMessage::Message(*message), sender)
-                    }
-                    Err(_) => {
-                        println!("Send a message of the wrong type to an actor");
-                    }
-                }
-            }
-        }
+impl<Args: Arguments, A: Actor + 'static> CanReceive for ActorRef<Args, A> {
+    fn receive(&self, message: InnerMessage, sender: Arc<CanReceive>) {
+        self.actor_cell.receive_message(message, sender);
     }
 
     fn receive_system_message(&self, system_message: SystemMessage) {

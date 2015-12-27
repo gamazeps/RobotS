@@ -5,6 +5,7 @@ extern crate robots;
 use eventual::Async;
 use rand::Rng;
 
+use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -18,8 +19,8 @@ enum Exchanges {
 
 struct Requester;
 
-impl Actor<()> for Requester {
-    fn receive<Args: Arguments>(&self, _message: (), _context: ActorCell<Args, (), Requester>) {}
+impl Actor for Requester {
+    fn receive<Args: Arguments>(&self, _message: Box<Any>, _context: ActorCell<Args, Requester>) {}
 }
 
 impl Requester {
@@ -32,12 +33,14 @@ struct Answerer {
     secret: u32,
 }
 
-impl Actor<Exchanges> for Answerer {
+impl Actor for Answerer {
     fn receive<Args: Arguments>(&self,
-                                message: Exchanges,
-                                context: ActorCell<Args, Exchanges, Answerer>) {
-        if message == Exchanges::Request {
-            context.tell(context.sender(), Exchanges::Answer(self.secret));
+                                message: Box<Any>,
+                                context: ActorCell<Args, Answerer>) {
+        if let Ok(message) = Box::<Any>::downcast::<Exchanges>(message) {
+            if *message == Exchanges::Request {
+                context.tell(context.sender(), Exchanges::Answer(self.secret));
+            }
         }
     }
 }

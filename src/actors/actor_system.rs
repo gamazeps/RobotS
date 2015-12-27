@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 
-use actors::{Actor, ActorRef, Arguments, CanReceive, Message, Props};
+use actors::{Actor, ActorRef, Arguments, CanReceive, Props};
 use actors::cthulhu::Cthulhu;
 use actors::user_actor::UserActorRef;
 
@@ -52,11 +52,10 @@ impl ActorSystem {
     }
 
     /// Spawns an Actor of type A, created using the Props given.
-    pub fn actor_of<Args: Arguments, M: Message, A: Actor<M> + 'static>
-        (&self,
-         props: Props<Args, M, A>,
-         name: String)
-         -> Arc<ActorRef<Args, M, A>> {
+    pub fn actor_of<Args: Arguments, A: Actor + 'static>(&self,
+                                                         props: Props<Args, A>,
+                                                         name: String)
+                                                         -> Arc<ActorRef<Args, A>> {
         self.inner.actor_of(props, name)
     }
 
@@ -66,10 +65,9 @@ impl ActorSystem {
     }
 
     /// Enqueues the given Actor on the queue of Actors with something to handle.
-    pub fn enqueue_actor<Args, M, A>(&self, actor_ref: Arc<ActorRef<Args, M, A>>)
+    pub fn enqueue_actor<Args, A>(&self, actor_ref: Arc<ActorRef<Args, A>>)
         where Args: Arguments,
-              M: Message,
-              A: Actor<M> + 'static
+              A: Actor + 'static
     {
         self.inner.enqueue_actor(actor_ref);
     }
@@ -171,11 +169,10 @@ impl InnerActorSystem {
     }
 
     /// Spawns an Actor of type A, created using the Props given.
-    fn actor_of<Args: Arguments, M: Message, A: Actor<M> + 'static>
-        (&self,
-         props: Props<Args, M, A>,
-         name: String)
-         -> Arc<ActorRef<Args, M, A>> {
+    fn actor_of<Args: Arguments, A: Actor + 'static>(&self,
+                                                     props: Props<Args, A>,
+                                                     name: String)
+                                                     -> Arc<ActorRef<Args, A>> {
         // Not having the user actor in a Mutex in ok because the actor_of function already has
         // mutual exclusion, so we are in the clear.
         match self.user_actor.lock().unwrap().clone() {
@@ -197,10 +194,9 @@ impl InnerActorSystem {
     }
 
     /// Enqueues the given Actor on the queue of Actors with something to handle.
-    fn enqueue_actor<Args, M, A>(&self, actor_ref: Arc<ActorRef<Args, M, A>>)
+    fn enqueue_actor<Args, A>(&self, actor_ref: Arc<ActorRef<Args, A>>)
         where Args: Arguments,
-              M: Message,
-              A: Actor<M> + 'static
+              A: Actor + 'static
     {
         match self.actors_queue_sender.lock().unwrap().send(actor_ref) {
             Ok(_) => return,

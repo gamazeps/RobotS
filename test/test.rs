@@ -3,6 +3,7 @@ extern crate robots;
 
 use eventual::Async;
 
+use std::any::Any;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender};
 
@@ -26,26 +27,28 @@ struct InternalState {
     sender: Arc<Mutex<Sender<Res>>>,
 }
 
-impl Actor<InternalStateMessage> for InternalState {
+impl Actor for InternalState {
     fn receive<Args: Arguments>(&self,
-                                message: InternalStateMessage,
-                                context: ActorCell<Args, InternalStateMessage, InternalState>) {
-        match message {
-            InternalStateMessage::Get => context.tell(context.sender(), *self.last.lock().unwrap()),
-            InternalStateMessage::Set(message) => {
-                // Here mixing the test actir for the two tests might seem a bit weird,
-                // but we would get two very similar actors otherwise.
-                let mut last = self.last.lock().unwrap();
-                if message <= *last {
-                    let _ = self.sender.lock().unwrap().send(Res::Err);
-                } else {
-                    *last = message;
+                                message: Box<Any>,
+                                context: ActorCell<Args, InternalState>) {
+        if let Ok(message) = Box::<Any>::downcast::<InternalStateMessage>(message) {
+            match *message {
+                InternalStateMessage::Get => context.tell(context.sender(), *self.last.lock().unwrap()),
+                InternalStateMessage::Set(message) => {
+                    // Here mixing the test actir for the two tests might seem a bit weird,
+                    // but we would get two very similar actors otherwise.
+                    let mut last = self.last.lock().unwrap();
+                    if message <= *last {
+                        let _ = self.sender.lock().unwrap().send(Res::Err);
+                    } else {
+                        *last = message;
+                    }
+                    if *last == 1000 {
+                        let _ = self.sender.lock().unwrap().send(Res::Ok);
+                    }
                 }
-                if *last == 1000 {
-                    let _ = self.sender.lock().unwrap().send(Res::Ok);
-                }
+                InternalStateMessage::Panic => panic!(""),
             }
-            InternalStateMessage::Panic => panic!(""),
         }
     }
 }

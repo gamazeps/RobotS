@@ -1,5 +1,6 @@
 extern crate robots;
 
+use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -13,17 +14,20 @@ enum Greetings {
 
 struct HelloWorld;
 
-impl Actor<Greetings> for HelloWorld {
-    fn pre_start<Args: Arguments>(&self, context: ActorCell<Args, Greetings, HelloWorld>) {
+impl Actor for HelloWorld {
+    fn pre_start<Args: Arguments>(&self, context: ActorCell<Args, HelloWorld>) {
         let props = Props::new(Arc::new(Greeter::new), ());
         let greeter = context.actor_of(props, "greeter".to_owned());
         context.tell(greeter, Greetings::Greet);
     }
+
     fn receive<Args: Arguments>(&self,
-                                message: Greetings,
-                                context: ActorCell<Args, Greetings, HelloWorld>) {
-        if message == Greetings::Done {
-            context.stop(context.sender());
+                                message: Box<Any>,
+                                context: ActorCell<Args, HelloWorld>) {
+        if let Ok(message) = Box::<Any>::downcast::<Greetings>(message) {
+            if *message == Greetings::Done {
+                context.stop(context.sender());
+            }
         }
     }
 }
@@ -36,13 +40,15 @@ impl HelloWorld {
 
 struct Greeter;
 
-impl Actor<Greetings> for Greeter {
+impl Actor for Greeter {
     fn receive<Args: Arguments>(&self,
-                                message: Greetings,
-                                context: ActorCell<Args, Greetings, Greeter>) {
-        if message == Greetings::Greet {
-            println!("Hello World");
-            context.tell(context.sender(), Greetings::Done);
+                                message: Box<Any>,
+                                context: ActorCell<Args, Greeter>) {
+        if let Ok(message) = Box::<Any>::downcast::<Greetings>(message) {
+            if *message == Greetings::Greet {
+                println!("Hello World");
+                context.tell(context.sender(), Greetings::Done);
+            }
         }
     }
 }
