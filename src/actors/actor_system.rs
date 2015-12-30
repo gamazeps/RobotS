@@ -4,6 +4,7 @@ use std::thread;
 
 use actors::{Actor, ActorRef, Arguments, CanReceive, Props};
 use actors::cthulhu::Cthulhu;
+use actors::system_actor::SystemActorRef;
 use actors::user_actor::UserActorRef;
 
 struct Relauncher {
@@ -48,6 +49,8 @@ impl ActorSystem {
         *actor_system.inner.cthulhu.lock().unwrap() = Some(cthulhu.clone());
         let user_actor = UserActorRef::new(actor_system.clone(), cthulhu.clone());
         *actor_system.inner.user_actor.lock().unwrap() = Some(user_actor);
+        let system_actor = SystemActorRef::new(actor_system.clone(), cthulhu.clone());
+        *actor_system.inner.system_actor.lock().unwrap() = Some(system_actor);
         actor_system
     }
 
@@ -150,6 +153,7 @@ struct InnerActorSystem {
     actors_queue_receiver: Arc<Mutex<Receiver<Arc<CanReceive>>>>,
     cthulhu: Mutex<Option<Arc<Cthulhu>>>,
     user_actor: Mutex<Option<UserActorRef>>,
+    system_actor: Mutex<Option<SystemActorRef>>,
 }
 
 impl InnerActorSystem {
@@ -165,6 +169,7 @@ impl InnerActorSystem {
             actors_queue_receiver: Arc::new(Mutex::new(rx_queue)),
             cthulhu: Mutex::new(None),
             user_actor: Mutex::new(None),
+            system_actor: Mutex::new(None),
         }
     }
 
@@ -190,6 +195,7 @@ impl InnerActorSystem {
         };
         self.terminate_threads(n);
         *self.user_actor.lock().unwrap() = None;
+        *self.system_actor.lock().unwrap() = None;
         *self.cthulhu.lock().unwrap() = None;
     }
 

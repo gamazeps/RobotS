@@ -26,12 +26,13 @@ mod cthulhu;
 /// Module containing the user actor, parent of all user generated actors.
 mod user_actor;
 
+/// Module containing the system actor, parent of all actor system generated actors.
+mod system_actor;
 
 /// Trait to be implemented by messages, this is automatically given if a struct is
 /// already `Copy + Send + Sync + 'static + Any`.
-// FIXME(gamazeps): super not sure about the Sized requirement.
-pub trait Message: Copy + Send + Sync + 'static + Any + Sized {}
-impl<T> Message for T where T: Copy + Send + Sync + 'static + Any + Sized
+pub trait Message: Copy + Send + Sync + 'static + Any {}
+impl<T> Message for T where T: Copy + Send + Sync + 'static + Any
 {}
 
 /// Trait to be implemented by args, this is automatically given if a struct is
