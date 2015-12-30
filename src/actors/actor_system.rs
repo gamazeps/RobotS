@@ -47,10 +47,16 @@ impl ActorSystem {
         let actor_system = ActorSystem { inner: Arc::new(InnerActorSystem::new(name)) };
         let cthulhu = Arc::new(Cthulhu::new(actor_system.clone()));
         *actor_system.inner.cthulhu.lock().unwrap() = Some(cthulhu.clone());
-        let user_actor = RootActorRef::new(actor_system.clone(), "/user".to_owned(), cthulhu.clone());
+        let user_actor = RootActorRef::new(actor_system.clone(),
+                                           "/user".to_owned(),
+                                           cthulhu.clone());
         *actor_system.inner.user_actor.lock().unwrap() = Some(user_actor);
-        let system_actor = RootActorRef::new(actor_system.clone(), "/system".to_owned(), cthulhu.clone());
-        *actor_system.inner.name_resolver.write().unwrap() = Some(system_actor.actor_of(Props::new(Arc::new(NameResolver::new), ()), "name_resolver".to_owned()));
+        let system_actor = RootActorRef::new(actor_system.clone(),
+                                             "/system".to_owned(),
+                                             cthulhu.clone());
+        *actor_system.inner.name_resolver.write().unwrap() =
+            Some(system_actor.actor_of(Props::new(Arc::new(NameResolver::new), ()),
+                                       "name_resolver".to_owned()));
         *actor_system.inner.system_actor.lock().unwrap() = Some(system_actor);
         actor_system
     }

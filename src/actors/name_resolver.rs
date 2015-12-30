@@ -24,23 +24,21 @@ pub struct NameResolver {
 }
 
 impl Actor for NameResolver {
-    fn receive<Args: Arguments>(&self,
-                                message: Box<Any>,
-                                context: ActorCell<Args, NameResolver>) {
+    fn receive<Args: Arguments>(&self, message: Box<Any>, context: ActorCell<Args, NameResolver>) {
         if let Ok(message) = Box::<Any>::downcast::<ResolveRequest>(message) {
             match *message {
                 ResolveRequest::Add(address) => {
                     let mut index = self.index.lock().unwrap();
                     index.insert((*address.path()).clone(), address);
-                },
+                }
                 ResolveRequest::Remove(address) => {
                     let mut index = self.index.lock().unwrap();
                     index.remove(&*address);
-                },
+                }
                 ResolveRequest::Get(address) => {
                     let index = self.index.lock().unwrap();
                     context.tell(context.sender(), index.get(&address).cloned());
-                },
+                }
             }
         }
     }
@@ -48,8 +46,6 @@ impl Actor for NameResolver {
 
 impl NameResolver {
     pub fn new(_dummy: ()) -> NameResolver {
-        NameResolver {
-            index: Mutex::new(HashMap::new()),
-        }
+        NameResolver { index: Mutex::new(HashMap::new()) }
     }
 }

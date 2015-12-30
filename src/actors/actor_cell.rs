@@ -139,7 +139,7 @@ pub trait ActorContext<Args: Arguments, A: Actor + 'static> {
     /// Tries to give an address from  an actor path.
     /// Note that eventual futures are lazy, thus you need to await on the future at dome point,
     /// this makes this a synchronous call.
-    // TODO(gamazeps): Fix that. This should be fixable by improving on the futures without
+    // FIXME(gamazeps): Fix that. This should be fixable by improving on the futures without
     // touching this specific code here.
     fn identify_actor(&self, _name: String) -> Future<Option<Arc<CanReceive>>, ()>;
 }
@@ -184,7 +184,8 @@ impl<Args, A> ActorContext<Args, A> for ActorCell<Args, A>
         // This is a bit messy, but we have a chicken / egg issue otherwise when creating the name
         // resolver actor.
         if &*path != "/system/name_resolver" {
-            self.tell(inner.system.name_resolver(), ResolveRequest::Add(external_ref.clone()));
+            self.tell(inner.system.name_resolver(),
+                      ResolveRequest::Add(external_ref.clone()));
         }
         external_ref
     }
@@ -197,8 +198,9 @@ impl<Args, A> ActorContext<Args, A> for ActorCell<Args, A>
         let inner = unwrap_inner!(self.inner_cell, {
             panic!("Tried to get a sender from the context of a no longer existing actor");
         });
-        let current_sender = inner.current_sender.lock().unwrap().as_ref().unwrap().clone();
-        current_sender
+        // This is weird but this is for clippy.
+        let current_sender = inner.current_sender.lock().unwrap();
+        current_sender.as_ref().unwrap().clone()
     }
 
     fn stop(&self, actor_ref: Arc<CanReceive>) {
@@ -234,8 +236,8 @@ impl<Args, A> ActorContext<Args, A> for ActorCell<Args, A>
             panic!("Tried to get the monitored actors from the context of a no longer existing \
                     actor");
         });
-        let monitoring = inner.monitoring.lock().unwrap().clone();
-        monitoring
+        let monitoring = inner.monitoring.lock().unwrap();
+        monitoring.clone()
     }
 
     fn path(&self) -> Arc<String> {
@@ -247,8 +249,8 @@ impl<Args, A> ActorContext<Args, A> for ActorCell<Args, A>
 
     fn identify_actor(&self, name: String) -> Future<Option<Arc<CanReceive>>, ()> {
         let inner = unwrap_inner!(self.inner_cell, {
-            panic!("Tried to get the actor system of a no longer existing actor while resolving a\
-            path. This should *never* happen");
+            panic!("Tried to get the actor system of a no longer existing actor while resolving \
+                    apath. This should *never* happen");
         });
         self.ask(inner.system.name_resolver(), ResolveRequest::Get(name))
     }
@@ -458,7 +460,8 @@ impl<Args: Arguments, A: Actor + 'static> InnerActorCell<Args, A> {
         }
         for i in index.iter() {
             let address = children.swap_remove(*i);
-            context.tell(self.system.name_resolver(), ResolveRequest::Remove(address.0));
+            context.tell(self.system.name_resolver(),
+                         ResolveRequest::Remove(address.0));
         }
     }
 

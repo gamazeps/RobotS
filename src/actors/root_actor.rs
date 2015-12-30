@@ -1,4 +1,5 @@
-/// This is a template for root actors. 
+/// This is a template for root actors.
+///
 /// We qualify a `root actor` as teh root of an actor hierarchy, with its own threads.
 ///
 /// Note that there are only two root actors:

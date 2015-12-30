@@ -6,8 +6,9 @@ use eventual::Async;
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender};
+use std::time::Duration;
 
-use robots::actors::{Actor, ActorSystem, ActorCell, Arguments, ActorContext, Props};
+use robots::actors::{Actor, ActorSystem, ActorCell, Arguments, ActorContext, CanReceive, Props};
 
 #[derive(Debug, PartialEq)]
 enum Res {
@@ -33,7 +34,9 @@ impl Actor for InternalState {
                                 context: ActorCell<Args, InternalState>) {
         if let Ok(message) = Box::<Any>::downcast::<InternalStateMessage>(message) {
             match *message {
-                InternalStateMessage::Get => context.tell(context.sender(), *self.last.lock().unwrap()),
+                InternalStateMessage::Get => {
+                    context.tell(context.sender(), *self.last.lock().unwrap())
+                }
                 InternalStateMessage::Set(message) => {
                     // Here mixing the test actir for the two tests might seem a bit weird,
                     // but we would get two very similar actors otherwise.
@@ -111,6 +114,74 @@ fn recover_from_panic() {
                             .await()
                             .unwrap();
     assert_eq!(0u32, res);
+
+    actor_system.shutdown();
+}
+
+struct Resolver;
+
+impl Actor for Resolver {
+    fn receive<Args: Arguments>(&self, message: Box<Any>, context: ActorCell<Args, Resolver>) {
+        if let Ok(message) = Box::<Any>::downcast::<String>(message) {
+            let res = context.identify_actor(*message)
+                             .await()
+                             .unwrap();
+            context.tell(context.sender(), res);
+        }
+    }
+}
+
+impl Resolver {
+    fn new(_dummy: ()) -> Resolver {
+        Resolver
+    }
+}
+
+#[test]
+fn resolve_name_real_path() {
+    let actor_system = ActorSystem::new("test".to_owned());
+    actor_system.spawn_threads(2);
+
+    let props = Props::new(Arc::new(Resolver::new), ());
+    let requester = actor_system.actor_of(props.clone(), "sender".to_owned());
+    let answerer = actor_system.actor_of(props.clone(), "answerer".to_owned());
+
+    // We wait to be sure that the actors will be registered to the name resolver.
+    std::thread::sleep(Duration::from_millis(100));
+
+    let res: Option<Arc<CanReceive>> =
+        requester.ask_to::<String, Option<Arc<CanReceive>>, ()>(answerer.clone(),
+                                                                "/user/sender".to_owned())
+                 .await()
+                 .unwrap();
+    let res = res.unwrap();
+    assert!(requester.equals(&*res));
+
+    actor_system.shutdown();
+}
+
+#[test]
+fn resolve_name_fake_path() {
+    let actor_system = ActorSystem::new("test".to_owned());
+    actor_system.spawn_threads(2);
+
+    let props = Props::new(Arc::new(Resolver::new), ());
+    let requester = actor_system.actor_of(props.clone(), "sender".to_owned());
+    let answerer = actor_system.actor_of(props.clone(), "answerer".to_owned());
+
+    // We wait to be sure that the actors will be registered to the name resolver.
+    std::thread::sleep(Duration::from_millis(100));
+
+    let res: Option<Arc<CanReceive>> =
+        requester.ask_to::<String, Option<Arc<CanReceive>>, ()>(answerer.clone(),
+                                                                "/foo/bar".to_owned())
+                 .await()
+                 .unwrap();
+
+    match res {
+        None => {}
+        Some(_) => panic!(""),
+    };
 
     actor_system.shutdown();
 }
