@@ -174,13 +174,17 @@ impl<Args, A> ActorContext<Args, A> for ActorCell<Args, A>
         let internal_ref = ActorRef::with_cell(actor_cell, path.clone());
         let external_ref = Arc::new(internal_ref.clone());
         {
-            inner.children.lock().unwrap().push((path, Arc::new(internal_ref)));
+            inner.children.lock().unwrap().push((path.clone(), Arc::new(internal_ref)));
         }
         {
             inner.monitoring.lock().unwrap().push(external_ref.clone());
         }
         external_ref.receive_system_message(SystemMessage::Start);
-        self.tell(inner.system.name_resolver(), ResolveRequest::Add(external_ref.clone()));
+        // This is a bit messy, but we have a chicken / egg issue otherwise when creating the name
+        // resolver actor.
+        if &*path != "/system/name_resolver" {
+            self.tell(inner.system.name_resolver(), ResolveRequest::Add(external_ref.clone()));
+        }
         external_ref
     }
 
