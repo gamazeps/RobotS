@@ -26,10 +26,13 @@ mod cthulhu;
 /// Module containing the root actor pattern, used for the `user actor` and the `systel actor`.
 mod root_actor;
 
+/// Module with the name resolver actor.
+mod name_resolver;
+
 /// Trait to be implemented by messages, this is automatically given if a struct is
-/// already `Copy + Send + Sync + 'static + Any`.
-pub trait Message: Copy + Send + Sync + 'static + Any {}
-impl<T> Message for T where T: Copy + Send + Sync + 'static + Any
+/// already `Clone + Send + Sync + 'static + Any`.
+pub trait Message: Clone + Send + Sync + 'static + Any {}
+impl<T> Message for T where T: Clone + Send + Sync + 'static + Any
 {}
 
 /// Trait to be implemented by args, this is automatically given if a struct is

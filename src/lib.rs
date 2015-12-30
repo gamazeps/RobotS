@@ -10,7 +10,7 @@
         trivial_numeric_casts,
         unused_import_braces,
         unused_qualifications)]
-#![deny(warnings)]
+//#![deny(warnings)]
 
 /// Actors core.
 pub mod actors;

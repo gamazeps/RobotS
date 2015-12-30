@@ -1,8 +1,13 @@
+extern crate eventual;
+
 use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
+use self::eventual::Future;
+
 use actors::{Actor, ActorPath, ActorRef, ActorSystem, Arguments, CanReceive, Message, Props};
+use actors::name_resolver::ResolveRequest;
 
 enum Ref<T> {
     StrongRef(Arc<T>),
@@ -129,6 +134,13 @@ pub trait ActorContext<Args: Arguments, A: Actor + 'static> {
 
     /// Lifecycle monitoring, list of monitored actors.
     fn path(&self) -> Arc<String>;
+
+    /// Tries to give an address from  an actor path.
+    /// Note that eventual futures are lazy, thus you need to await on the future at dome point,
+    /// this makes this a synchronous call.
+    // TODO(gamazeps): Fix that. This should be fixable by improving on the futures without
+    // touching this specific code here.
+    fn identify_actor(&self, _name: String) -> Future<Option<Arc<CanReceive>>, ()>;
 }
 
 impl<Args, A> ActorContext<Args, A> for ActorCell<Args, A>
@@ -168,6 +180,7 @@ impl<Args, A> ActorContext<Args, A> for ActorCell<Args, A>
             inner.monitoring.lock().unwrap().push(external_ref.clone());
         }
         external_ref.receive_system_message(SystemMessage::Start);
+        self.tell(inner.system.name_resolver(), ResolveRequest::Add(external_ref.clone()));
         external_ref
     }
 
@@ -225,6 +238,10 @@ impl<Args, A> ActorContext<Args, A> for ActorCell<Args, A>
             panic!("Tried to get the path from the context of a no longer existing actor");
         });
         inner.path.clone()
+    }
+
+    fn identify_actor(&self, name: String) -> Future<Option<Arc<CanReceive>>, ()> {
+        Future::error(())
     }
 }
 
@@ -410,7 +427,7 @@ impl<Args: Arguments, A: Actor + 'static> InnerActorCell<Args, A> {
                         match message {
                             ControlMessage::PoisonPill => context.kill_me(),
                             ControlMessage::Terminated(_) => actor.receive_termination(context),
-                            ControlMessage::KillMe(actor_ref) => self.kill(actor_ref),
+                            ControlMessage::KillMe(actor_ref) => self.kill(actor_ref, context),
                         }
                     }
                 }
@@ -422,7 +439,7 @@ impl<Args: Arguments, A: Actor + 'static> InnerActorCell<Args, A> {
         failsafe.cancel();
     }
 
-    fn kill(&self, actor: Arc<CanReceive>) {
+    fn kill(&self, actor: Arc<CanReceive>, context: ActorCell<Args, A>) {
         let mut children = self.children.lock().unwrap();
         let mut index = None;
         for (i, child) in children.iter().enumerate() {
@@ -431,7 +448,8 @@ impl<Args: Arguments, A: Actor + 'static> InnerActorCell<Args, A> {
             }
         }
         for i in index.iter() {
-            children.swap_remove(*i);
+            let address = children.swap_remove(*i);
+            context.tell(self.system.name_resolver(), ResolveRequest::Remove(address.0));
         }
     }
 

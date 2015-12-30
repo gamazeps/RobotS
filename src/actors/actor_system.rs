@@ -1,9 +1,10 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 
 use actors::{Actor, ActorRef, Arguments, CanReceive, Props};
 use actors::cthulhu::Cthulhu;
+use actors::name_resolver::NameResolver;
 use actors::root_actor::RootActorRef;
 
 struct Relauncher {
@@ -49,6 +50,7 @@ impl ActorSystem {
         let user_actor = RootActorRef::new(actor_system.clone(), "/user".to_owned(), cthulhu.clone());
         *actor_system.inner.user_actor.lock().unwrap() = Some(user_actor);
         let system_actor = RootActorRef::new(actor_system.clone(), "system".to_owned(), cthulhu.clone());
+        let _name_resolver = system_actor.actor_of(Props::new(Arc::new(NameResolver::new), ()), "name_resolver".to_owned());
         *actor_system.inner.system_actor.lock().unwrap() = Some(system_actor);
         actor_system
     }
@@ -131,6 +133,12 @@ impl ActorSystem {
     pub fn terminate_threads(&self, n: u32) {
         self.inner.terminate_threads(n);
     }
+
+    /// Gives a reference to the name resolver actor.
+    pub fn name_resolver(&self) -> Arc<CanReceive> {
+        let resolver = self.inner.name_resolver.read().unwrap().as_ref().unwrap().clone();
+        resolver
+    }
 }
 
 impl Clone for ActorSystem {
@@ -153,6 +161,8 @@ struct InnerActorSystem {
     cthulhu: Mutex<Option<Arc<Cthulhu>>>,
     user_actor: Mutex<Option<RootActorRef>>,
     system_actor: Mutex<Option<RootActorRef>>,
+    // Ref to the name resolver.
+    name_resolver: RwLock<Option<Arc<CanReceive>>>,
 }
 
 impl InnerActorSystem {
@@ -169,6 +179,7 @@ impl InnerActorSystem {
             cthulhu: Mutex::new(None),
             user_actor: Mutex::new(None),
             system_actor: Mutex::new(None),
+            name_resolver: RwLock::new(None),
         }
     }
 
