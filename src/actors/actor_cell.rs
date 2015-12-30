@@ -8,6 +8,7 @@ use self::eventual::Future;
 
 use actors::{Actor, ActorPath, ActorRef, ActorSystem, Arguments, CanReceive, Message, Props};
 use actors::name_resolver::ResolveRequest;
+use actors::ask::AskPattern;
 
 enum Ref<T> {
     StrongRef(Arc<T>),
@@ -245,7 +246,11 @@ impl<Args, A> ActorContext<Args, A> for ActorCell<Args, A>
     }
 
     fn identify_actor(&self, name: String) -> Future<Option<Arc<CanReceive>>, ()> {
-        Future::error(())
+        let inner = unwrap_inner!(self.inner_cell, {
+            panic!("Tried to get the actor system of a no longer existing actor while resolving a\
+            path. This should *never* happen");
+        });
+        self.ask(inner.system.name_resolver(), ResolveRequest::Get(name))
     }
 }
 
