@@ -4,8 +4,7 @@ use std::thread;
 
 use actors::{Actor, ActorRef, Arguments, CanReceive, Props};
 use actors::cthulhu::Cthulhu;
-use actors::system_actor::SystemActorRef;
-use actors::user_actor::UserActorRef;
+use actors::root_actor::RootActorRef;
 
 struct Relauncher {
     actor_system: ActorSystem,
@@ -47,9 +46,9 @@ impl ActorSystem {
         let actor_system = ActorSystem { inner: Arc::new(InnerActorSystem::new(name)) };
         let cthulhu = Arc::new(Cthulhu::new(actor_system.clone()));
         *actor_system.inner.cthulhu.lock().unwrap() = Some(cthulhu.clone());
-        let user_actor = UserActorRef::new(actor_system.clone(), cthulhu.clone());
+        let user_actor = RootActorRef::new(actor_system.clone(), "/user".to_owned(), cthulhu.clone());
         *actor_system.inner.user_actor.lock().unwrap() = Some(user_actor);
-        let system_actor = SystemActorRef::new(actor_system.clone(), cthulhu.clone());
+        let system_actor = RootActorRef::new(actor_system.clone(), "system".to_owned(), cthulhu.clone());
         *actor_system.inner.system_actor.lock().unwrap() = Some(system_actor);
         actor_system
     }
@@ -152,8 +151,8 @@ struct InnerActorSystem {
     // Receiving end to give to the thread pool.
     actors_queue_receiver: Arc<Mutex<Receiver<Arc<CanReceive>>>>,
     cthulhu: Mutex<Option<Arc<Cthulhu>>>,
-    user_actor: Mutex<Option<UserActorRef>>,
-    system_actor: Mutex<Option<SystemActorRef>>,
+    user_actor: Mutex<Option<RootActorRef>>,
+    system_actor: Mutex<Option<RootActorRef>>,
 }
 
 impl InnerActorSystem {

@@ -23,11 +23,8 @@ pub mod ask;
 /// Module containing the original actor.
 mod cthulhu;
 
-/// Module containing the user actor, parent of all user generated actors.
-mod user_actor;
-
-/// Module containing the system actor, parent of all actor system generated actors.
-mod system_actor;
+/// Module containing the root actor pattern, used for the `user actor` and the `systel actor`.
+mod root_actor;
 
 /// Trait to be implemented by messages, this is automatically given if a struct is
 /// already `Copy + Send + Sync + 'static + Any`.
