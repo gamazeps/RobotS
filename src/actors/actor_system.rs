@@ -46,18 +46,18 @@ impl ActorSystem {
     pub fn new(name: String) -> ActorSystem {
         let actor_system = ActorSystem { inner: Arc::new(InnerActorSystem::new(name)) };
         let cthulhu = Arc::new(Cthulhu::new(actor_system.clone()));
-        *actor_system.inner.cthulhu.lock().unwrap() = Some(cthulhu.clone());
+        *actor_system.inner.cthulhu.write().unwrap() = Some(cthulhu.clone());
         let user_actor = RootActorRef::new(actor_system.clone(),
                                            "/user".to_owned(),
                                            cthulhu.clone());
-        *actor_system.inner.user_actor.lock().unwrap() = Some(user_actor);
+        *actor_system.inner.user_actor.write().unwrap() = Some(user_actor);
         let system_actor = RootActorRef::new(actor_system.clone(),
                                              "/system".to_owned(),
                                              cthulhu.clone());
         *actor_system.inner.name_resolver.write().unwrap() =
             Some(system_actor.actor_of(Props::new(Arc::new(NameResolver::new), ()),
                                        "name_resolver".to_owned()));
-        *actor_system.inner.system_actor.lock().unwrap() = Some(system_actor);
+        *actor_system.inner.system_actor.write().unwrap() = Some(system_actor);
         actor_system
     }
 
@@ -166,9 +166,9 @@ struct InnerActorSystem {
     actors_queue_sender: Mutex<Sender<Arc<CanReceive>>>,
     // Receiving end to give to the thread pool.
     actors_queue_receiver: Arc<Mutex<Receiver<Arc<CanReceive>>>>,
-    cthulhu: Mutex<Option<Arc<Cthulhu>>>,
-    user_actor: Mutex<Option<RootActorRef>>,
-    system_actor: Mutex<Option<RootActorRef>>,
+    cthulhu: RwLock<Option<Arc<Cthulhu>>>,
+    user_actor: RwLock<Option<RootActorRef>>,
+    system_actor: RwLock<Option<RootActorRef>>,
     // Ref to the name resolver.
     name_resolver: RwLock<Option<Arc<CanReceive>>>,
 }
@@ -184,9 +184,9 @@ impl InnerActorSystem {
             n_threads: Mutex::new(0u32),
             actors_queue_sender: Mutex::new(tx_queue),
             actors_queue_receiver: Arc::new(Mutex::new(rx_queue)),
-            cthulhu: Mutex::new(None),
-            user_actor: Mutex::new(None),
-            system_actor: Mutex::new(None),
+            cthulhu: RwLock::new(None),
+            user_actor: RwLock::new(None),
+            system_actor: RwLock::new(None),
             name_resolver: RwLock::new(None),
         }
     }
@@ -198,7 +198,7 @@ impl InnerActorSystem {
                                                      -> Arc<ActorRef<Args, A>> {
         // Not having the user actor in a Mutex in ok because the actor_of function already has
         // mutual exclusion, so we are in the clear.
-        match self.user_actor.lock().unwrap().clone() {
+        match self.user_actor.read().unwrap().clone() {
             Some(user_actor) => user_actor.actor_of(props, name),
             None => panic!("The user actor is not initialised"),
         }
@@ -212,9 +212,9 @@ impl InnerActorSystem {
             *self.n_threads.lock().unwrap()
         };
         self.terminate_threads(n);
-        *self.user_actor.lock().unwrap() = None;
-        *self.system_actor.lock().unwrap() = None;
-        *self.cthulhu.lock().unwrap() = None;
+        *self.user_actor.write().unwrap() = None;
+        *self.system_actor.write().unwrap() = None;
+        *self.cthulhu.write().unwrap() = None;
     }
 
     /// Enqueues the given Actor on the queue of Actors with something to handle.
