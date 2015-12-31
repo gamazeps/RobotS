@@ -20,7 +20,7 @@ enum Exchanges {
 struct Requester;
 
 impl Actor for Requester {
-    fn receive<Args: Arguments>(&self, _message: Box<Any>, _context: ActorCell<Args, Requester>) {}
+    fn receive(&self, _message: Box<Any>, _context: ActorCell) {}
 }
 
 impl Requester {
@@ -34,9 +34,7 @@ struct Answerer {
 }
 
 impl Actor for Answerer {
-    fn receive<Args: Arguments>(&self,
-                                message: Box<Any>,
-                                context: ActorCell<Args, Answerer>) {
+    fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<Exchanges>(message) {
             if *message == Exchanges::Request {
                 context.tell(context.sender(), Exchanges::Answer(self.secret));

@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use self::eventual::{Complete, Future};
 
-use actors::{Actor, ActorCell, ActorContext, ActorPath, Arguments, CanReceive, InnerMessage,
+use actors::{Actor, ActorCell, ActorContext, ActorPath, CanReceive, InnerMessage,
              Message, SystemMessage};
 
 struct CompleteRef<V: Send + 'static, E: Send + 'static> {
@@ -57,24 +57,14 @@ impl<V: Message, E: Send + 'static> CanReceive for CompleteRef<V, E> {
 }
 
 /// Trait to implement for having the ask method.
-pub trait AskPattern<Args, A, V, E>: ActorContext<Args, A>
-where Args: Arguments,
-      A: Actor + 'static,
-      V: Message,
-      E: Send + 'static
-{
+pub trait AskPattern<V, E>: ActorContext where V: Message, E: Send + 'static {
     /// Sends a request to an Actor and stores the potential result in a Future.
     ///
     /// The Future will be completed with the value the actor will answer with.
     fn ask<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo) -> Future<V, E>;
 }
 
-impl<Args, A, V, E> AskPattern<Args, A, V, E> for ActorCell<Args, A>
-    where Args: Arguments,
-          A: Actor + 'static,
-          V: Message,
-          E: Send + 'static
-{
+impl<V, E> AskPattern<V, E> for ActorCell where V: Message, E: Send + 'static {
     fn ask<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo) -> Future<V, E> {
         let (complete, future) = Future::<V, E>::pair();
         let complete_ref = CompleteRef {

@@ -2,6 +2,12 @@ use std::sync::Arc;
 
 use actors::{Actor, Arguments};
 
+/// Public interface of a Props.
+pub trait ActorFactory: Send + Sync {
+    /// Creates an Actor instance.
+    fn create(&self) ->  Arc<Actor>;
+}
+
 /// Factory for `A`.
 ///
 /// It will always create an `A` with the same function and arguments.
@@ -14,20 +20,22 @@ pub struct Props<Args: Arguments, A: Actor> {
 
 impl<Args: Arguments, A: Actor> Props<Args, A> {
     /// Creates a `Props` which is a factory for `A` with the `creator` function and `args` args.
-    pub fn new(creator: Arc<Fn(Args) -> A + Sync + Send>, args: Args) -> Props<Args, A> {
-        Props::<Args, A> {
+    pub fn new(creator: Arc<Fn(Args) -> A + Sync + Send>, args: Args) -> Arc<ActorFactory> {
+        Arc::new(Props::<Args, A> {
             creator: creator,
             args: args,
-        }
+        })
     }
+}
 
+impl<Args: Arguments, A: Actor> ActorFactory for Props<Args, A> {
     /// Creates an Actor instance with the `creator` function and the `args` args.
     ///
     /// This is meant to allow to respawn an Actor when it fails.
-    pub fn create(&self) -> A {
+    fn create(&self) -> Arc<Actor> {
         // FIXME(gamazeps): reopen https://github.com/rust-lang/rust/issues/18343 with an example.
         let args = self.args.clone();
-        (self.creator)(args)
+        Arc::new((self.creator)(args))
     }
 }
 

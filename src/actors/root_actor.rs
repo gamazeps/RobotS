@@ -10,12 +10,13 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use actors::{Actor, ActorCell, ActorContext, ActorPath, ActorRef, ActorSystem, Arguments,
+use actors::{Actor, ActorCell, ActorContext, ActorPath, ActorRef, ActorSystem,
              CanReceive, InnerMessage, Props, SystemMessage};
 use actors::cthulhu::Cthulhu;
+use actors::props::ActorFactory;
 
 pub struct RootActorRef {
-    actor_cell: ActorCell<(), InternalRootActor>,
+    actor_cell: ActorCell,
     path: ActorPath,
 }
 
@@ -33,10 +34,7 @@ impl RootActorRef {
     }
 
     /// Creates an actor for the root.
-    pub fn actor_of<Args: Arguments, A: Actor + 'static>(&self,
-                                                         props: Props<Args, A>,
-                                                         name: String)
-                                                         -> Arc<ActorRef<Args, A>> {
+    pub fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> Arc<ActorRef> {
         self.actor_cell.actor_of(props, name)
     }
 }
@@ -79,8 +77,5 @@ impl InternalRootActor {
 
 impl Actor for InternalRootActor {
     // The receive function is currently a dummy.
-    fn receive<Args: Arguments>(&self,
-                                _message: Box<Any>,
-                                _context: ActorCell<Args, InternalRootActor>) {
-    }
+    fn receive(&self, _message: Box<Any>, _context: ActorCell) { }
 }

@@ -4,7 +4,7 @@ use std::sync::Mutex;
 use std::any::Any;
 use std::sync::Arc;
 
-use actors::{Actor, ActorCell, ActorContext, Arguments, CanReceive};
+use actors::{Actor, ActorCell, ActorContext, CanReceive};
 
 /// Messages handled by the NameResolver.
 #[derive(Clone)]
@@ -24,7 +24,7 @@ pub struct NameResolver {
 }
 
 impl Actor for NameResolver {
-    fn receive<Args: Arguments>(&self, message: Box<Any>, context: ActorCell<Args, NameResolver>) {
+    fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<ResolveRequest>(message) {
             match *message {
                 ResolveRequest::Add(address) => {

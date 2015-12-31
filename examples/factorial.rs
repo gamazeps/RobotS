@@ -10,9 +10,7 @@ use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Pro
 struct Factorial;
 
 impl Actor for Factorial {
-    fn receive<Args: Arguments>(&self,
-                                message: Box<Any>,
-                                context: ActorCell<Args, Factorial>) {
+    fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<(u32, u32)>(message) {
             let (i, j) = *message;
             if i == 0 {

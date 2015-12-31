@@ -22,9 +22,7 @@ struct InternalState {
 }
 
 impl Actor for InternalState {
-    fn receive<Args: Arguments>(&self,
-                                message: Box<Any>,
-                                _context: ActorCell<Args, InternalState>) {
+    fn receive(&self, message: Box<Any>, _context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<BenchMessage>(message) {
             if *message == BenchMessage::Over {
                 let _ = self.sender.lock().unwrap().send(());
@@ -66,7 +64,7 @@ fn send_1000_messages(b: &mut Bencher) {
 struct Dummy;
 
 impl Actor for Dummy {
-    fn receive<Args: Arguments>(&self, _message: Box<Any>, _context: ActorCell<Args, Dummy>) {}
+    fn receive(&self, _message: Box<Any>, _context: ActorCell) {}
 }
 
 impl Dummy {

@@ -41,10 +41,13 @@ pub trait Arguments: Clone + Send + Sync + 'static {}
 impl<T> Arguments for T where T: Clone + Send + Sync + 'static
 {}
 
+//unsafe impl<T: Actor> Sync for T {}
+
 /// This is the trait to implement to become an Actor.
 ///
 /// Normaly only the receive method has to be implemented.
-pub trait Actor: Send + Sync + Sized {
+// NOTE: Not sure about the 'static
+pub trait Actor: Send + Sync + 'static {
 
     /// Single method to be implemented for an Actor.
     ///
@@ -53,30 +56,30 @@ pub trait Actor: Send + Sync + Sized {
     // done in order to have nicer code for the downcasts (indeed, I can't implement downcast
     // methods for Box<Message>).
     // Checks for sending data with the Message trait is done in the sending phase.
-    fn receive<Args: Arguments>(&self, message: Box<Any>, context: ActorCell<Args, Self>);
+    fn receive(&self, message: Box<Any>, context: ActorCell);
 
     /// Method called when a monitored actor is terminated.
     ///
     /// This is put in a separated method because match in rust must check all variations and we
     /// chose not to force the user to make a case for terminations if it doesn not monitor any
     /// actor.
-    fn receive_termination<Args: Arguments>(&self, _context: ActorCell<Args, Self>) {
+    fn receive_termination(&self, _context: ActorCell) {
         panic!("Not implemented");
     }
 
     /// Method called before the Actor is started.
-    fn pre_start<Args: Arguments>(&self, _context: ActorCell<Args, Self>) {}
+    fn pre_start(&self, _context: ActorCell) {}
 
     /// Method called after the Actor is stopped.
     fn post_stop(&self) {}
 
     /// Method called before the Actor is restarted.
-    fn pre_restart<Args: Arguments>(&self, _context: ActorCell<Args, Self>) {
+    fn pre_restart(&self, _context: ActorCell) {
         self.post_stop();
     }
 
     /// Method called after the Actor is restarted.
-    fn post_restart<Args: Arguments>(&self, context: ActorCell<Args, Self>) {
+    fn post_restart(&self, context: ActorCell) {
         self.pre_start(context);
     }
 }

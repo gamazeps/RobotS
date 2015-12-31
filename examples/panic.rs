@@ -19,9 +19,7 @@ struct InternalState {
 }
 
 impl Actor for InternalState {
-    fn receive<Args: Arguments>(&self,
-                                message: Box<Any>,
-                                _context: ActorCell<Args, InternalState>) {
+    fn receive(&self, message: Box<Any>, _context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<InternalStateMessage>(message) {
             match *message {
                 InternalStateMessage::Get => {

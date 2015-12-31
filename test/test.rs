@@ -29,9 +29,7 @@ struct InternalState {
 }
 
 impl Actor for InternalState {
-    fn receive<Args: Arguments>(&self,
-                                message: Box<Any>,
-                                context: ActorCell<Args, InternalState>) {
+    fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<InternalStateMessage>(message) {
             match *message {
                 InternalStateMessage::Get => {
@@ -121,7 +119,7 @@ fn recover_from_panic() {
 struct Resolver;
 
 impl Actor for Resolver {
-    fn receive<Args: Arguments>(&self, message: Box<Any>, context: ActorCell<Args, Resolver>) {
+    fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<String>(message) {
             let res = context.identify_actor(*message)
                              .await()

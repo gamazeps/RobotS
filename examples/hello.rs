@@ -15,15 +15,13 @@ enum Greetings {
 struct HelloWorld;
 
 impl Actor for HelloWorld {
-    fn pre_start<Args: Arguments>(&self, context: ActorCell<Args, HelloWorld>) {
+    fn pre_start(&self, context: ActorCell) {
         let props = Props::new(Arc::new(Greeter::new), ());
         let greeter = context.actor_of(props, "greeter".to_owned());
         context.tell(greeter, Greetings::Greet);
     }
 
-    fn receive<Args: Arguments>(&self,
-                                message: Box<Any>,
-                                context: ActorCell<Args, HelloWorld>) {
+    fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<Greetings>(message) {
             if *message == Greetings::Done {
                 context.stop(context.sender());
@@ -41,9 +39,7 @@ impl HelloWorld {
 struct Greeter;
 
 impl Actor for Greeter {
-    fn receive<Args: Arguments>(&self,
-                                message: Box<Any>,
-                                context: ActorCell<Args, Greeter>) {
+    fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<Greetings>(message) {
             if *message == Greetings::Greet {
                 println!("Hello World");
