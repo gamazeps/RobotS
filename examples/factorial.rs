@@ -1,12 +1,15 @@
+/// In this example we show how to compute a factorial with actors.
+/// Here the actor simply sends messages to himself.
+
 extern crate robots;
 
 use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
-use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Props};
+use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props};
 
-/// Basic factorial.
+/// Basic tail recursive factorial.
 struct Factorial;
 
 impl Actor for Factorial {

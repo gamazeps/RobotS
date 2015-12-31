@@ -19,6 +19,15 @@ pub enum ResolveRequest {
     Get(String),
 }
 
+/// Name resolving actor.
+///
+/// It is used to resolve logical path to a real CanReceive.
+///
+/// It accepts ResolveRequest as messages.
+///
+/// When an actor is created its father sends a registration request to the anme resolver it.
+/// When an actor terminates one of its children it send an unregistration request to the name
+/// resolver.
 pub struct NameResolver {
     index: Mutex<HashMap<String, Arc<CanReceive>>>,
 }

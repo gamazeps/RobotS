@@ -7,7 +7,7 @@ use std::any::Any;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender};
 
-use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Props};
+use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props};
 
 use test::Bencher;
 
@@ -39,6 +39,8 @@ impl InternalState {
 
 
 #[bench]
+/// This bench sends a thousand messages to an actor then waits for an answer on a channel.
+/// When the thousandth is handled the actor sends a message on the above channel.
 fn send_1000_messages(b: &mut Bencher) {
     let actor_system = ActorSystem::new("test".to_owned());
     actor_system.spawn_threads(1);
@@ -51,7 +53,7 @@ fn send_1000_messages(b: &mut Bencher) {
     let actor_ref_2 = actor_system.actor_of(props.clone(), "receiver".to_owned());
 
     b.iter(|| {
-        for _ in 0..1_000 {
+        for _ in 0..999 {
             actor_ref_1.tell_to(actor_ref_2.clone(), BenchMessage::Nothing);
         }
         actor_ref_1.tell_to(actor_ref_2.clone(), BenchMessage::Over);
@@ -74,6 +76,9 @@ impl Dummy {
 }
 
 #[bench]
+/// This bench creates a thousand empty actors.
+/// Since actor creation is synchronous this is ok to just call the function mutiple times.
+/// The created actor is empty in order to just bench the overhead of creation.
 fn create_1000_actors(b: &mut Bencher) {
     let actor_system = ActorSystem::new("test".to_owned());
     actor_system.spawn_threads(1);

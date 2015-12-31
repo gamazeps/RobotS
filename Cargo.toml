@@ -1,6 +1,6 @@
 [package]
 name = "RobotS"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Felix Raimundo <gamaz3ps@gmail.com>"]
 documentation = "http://gamazeps.github.io/RobotS/"
 
@@ -9,11 +9,12 @@ default = []
 dev = ["clippy"]
 
 [dependencies]
+#  Here we always want the last one, because there are many breaking changes.
 clippy = {version = "*", optional = true}
 rand = "0.3.0"
 
 [dependencies.eventual]
-git = "https://github.com/carllerche/eventual"
+version = "0.1.5"
 
 [lib]
 name = "robots"

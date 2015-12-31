@@ -1,3 +1,9 @@
+/// In this example we show how to use the ask pattern.
+/// The ask pattern consists of sending a message expecting an answer, the answer is then put in
+/// a Future (we are using carllerche's eventual for now).
+/// We chose to use it from the "outside" here, but it works as well inside an actor by calling
+/// `context.ask(target, message)`.
+
 extern crate eventual;
 extern crate rand;
 extern crate robots;
@@ -9,7 +15,7 @@ use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
-use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Props};
+use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Exchanges {

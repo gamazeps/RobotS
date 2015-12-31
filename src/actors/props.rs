@@ -8,11 +8,10 @@ pub trait ActorFactory: Send + Sync {
     fn create(&self) ->  Arc<Actor>;
 }
 
-/// Factory for `A`.
+/// Props is the current only ActorFactory.
 ///
-/// It will always create an `A` with the same function and arguments.
-///
-/// It is also thread safe, and thus we can respawn an Actor across different threads.
+/// It is used to generate actors in a reliable way, calling `create` will always create the same
+/// actor insatance, it is thus the way used to create actors through this crate.
 pub struct Props<Args: Arguments, A: Actor> {
     creator: Arc<Fn(Args) -> A + Sync + Send>,
     args: Args,

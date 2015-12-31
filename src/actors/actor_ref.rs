@@ -9,12 +9,12 @@ use actors::actor_cell::ActorCell;
 use actors::ask::AskPattern;
 
 /// Type used to represent an ActorPath.
-/// This is juste a string now but will contain more information later.
+/// This is juste an Arc<String> now but will contain more information later.
 pub type ActorPath = Arc<String>;
 
 /// This is a reference to an Actor and what is supposed to be manipulated by the user.
 ///
-/// The only thing it can do is send and receive messages (according to the actor model in defined
+/// The only thing it can do is send and receive messages (according to the actor model defined
 /// by Hewitt).
 pub struct ActorRef {
     actor_cell: ActorCell,
@@ -36,16 +36,13 @@ impl ActorRef {
         }
     }
 
-    /// Sends a Message to a CanReceive<Message>.
-    // Note that we do not need this to be generic and could be a Box<Any>, but it seems like a
-    // nicer API to use.
+    /// Sends a Message to a CanReceive.
     pub fn tell_to<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo) {
         self.actor_cell.tell(to, message);
     }
 
-    /// Sends a Message to a CanReceive<Message>.
-    // Note that we do not need this to be generic and could be a Box<Any>, but it seems like a
-    // nicer API to use.
+    /// Sends a request to a CanReceive, the answer to this request is put in the Future returned
+    /// by ask_to.
     pub fn ask_to<MessageTo: Message, V: Message, E: Send + 'static>(&self,
                                                                      to: Arc<CanReceive>,
                                                                      message: MessageTo)
@@ -54,24 +51,36 @@ impl ActorRef {
     }
 }
 
-/// Trait used to signal that a struct can receive messages.
-/// Note that for the moment these are not typed, but it will be easy to add.
+/// This is the interface used for structs to which we can send messages.
+///
+/// We may call them ActorRef in the documentation because they act as an interface to something
+/// that acts like an actor (abd are actually ActorRef most of the time)..
 pub trait CanReceive: Send + Sync {
-    /// Puts the message in a mailbox and enqueues the CanReceive.
+
+    /// Receives a message and then schedules the CanReceive in the ActorSystem for handling the
+    /// message.
     fn receive(&self, message: InnerMessage, sender: Arc<CanReceive>);
 
-    /// Puts the system message in a mailbox and enqueues the CanReceive.
+    /// Receives a system generated message and then schedules the CanReceive in the ActorSystem for
+    /// handling the message.
+    ///
+    /// This is a diffreen method than receive_message because it does not require sender
+    /// information.
     fn receive_system_message(&self, system_message: SystemMessage);
 
-    /// Handles the message.
-    ///
-    /// Thus completes a Promise or calls the Actor's receive method.
+    /// Handles a message that has been received.
     fn handle(&self);
 
-    /// Path to the actor.
+    /// Logical path to the CanReceive.
     fn path(&self) -> ActorPath;
 
-    /// Tool for comparing actor refs.
+    /// Cheks if two CanReceive have the same underlying actor (or some other structure).
+    ///
+    /// Note that it only compares the logical path.
+    // FIXME(gamazeps): investigate having an ID for actors, so that we can check if two ActorRef
+    // with the same logical path really have the same underlying actor.
+    // This could happpen if I hold an old reference to an actor with some path, this actor is
+    // deleted and then a new actor is created with the same path.
     fn equals(&self, other: &CanReceive) -> bool {
         self.path() == other.path()
     }

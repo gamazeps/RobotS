@@ -1,10 +1,17 @@
+/// This example is a very simple hello world (the same you can see in
+/// [akka](https://github.com/akka/akka/blob/v2.0/akka-samples/akka-sample-hello/src/main/scala/sample/hello/Main.scala)
+/// Here we create a HelloWorld actor that will create a Greeter actor, send him a greeting
+/// request, handle the greeting and then terminate the Greeter.
+///
+/// This shows how to stop actors, use the pre_start method and basic message sending.
+
 extern crate robots;
 
 use std::any::Any;
 use std::sync::Arc;
 use std::time::Duration;
 
-use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Props};
+use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props};
 
 #[derive(Copy, Clone, PartialEq)]
 enum Greetings {

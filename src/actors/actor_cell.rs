@@ -1,3 +1,8 @@
+/// This module contains most of the internals of actors.
+///
+/// It is used to handle messages, system messages, termination, initialization, restarting and
+/// creation of actors.
+
 extern crate eventual;
 
 use std::any::Any;
@@ -30,7 +35,7 @@ macro_rules! unwrap_inner {
     }
 }
 
-/// Main interface for accessing the main Actor information (system, mailbox, sender, props...).
+/// Main interface for interractiong with an Actor for the internals.
 pub struct ActorCell {
     // We have an inner structure in order to be able to generate new ActorCell easily.
     inner_cell: Ref<InnerActorCell>,
@@ -99,22 +104,19 @@ impl ActorCell {
 
 /// This is the API that Actors are supposed to see of their context while handling a message.
 pub trait ActorContext {
-    /// Returns an ActorRef of the Actor.
+    /// Returns an ActorRef to the Actor.
     fn actor_ref(&self) -> Arc<ActorRef>;
 
-    /// Spawns an actor.
-    ///
-    /// Note that the supervision is not yet implemented so it does the same as creating an actor
-    /// through the actor system.
+    /// Spawns a child actor.
     fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> Arc<ActorRef>;
 
-    /// Sends a Message to the targeted CanReceive<M>.
+    /// Sends a Message to the targeted CanReceive.
     fn tell<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo);
 
     /// Requests the targeted actor to stop.
     fn stop(&self, actor_ref: Arc<CanReceive>);
 
-    /// Asks the father to kill the actor.
+    /// Asks the father of the actor to terminate it.
     fn kill_me(&self);
 
     /// Returns an Arc to the sender of the message being handled.
@@ -129,11 +131,11 @@ pub trait ActorContext {
     /// Lifecycle monitoring, list of monitored actors.
     fn monitoring(&self) -> Vec<Arc<CanReceive>>;
 
-    /// Lifecycle monitoring, list of monitored actors.
+    /// Logical path to the actor, such as `/user/foo/bar/baz`
     fn path(&self) -> Arc<String>;
 
-    /// Tries to give an address from  an actor path.
-    /// Note that eventual futures are lazy, thus you need to await on the future at dome point,
+    /// Tries to give an address from an actor path.
+    /// Note that eventual futures are lazy, thus you need to await on the Future at some point,
     /// this makes this a synchronous call.
     // FIXME(gamazeps): Fix that. This should be fixable by improving on the futures without
     // touching this specific code here.
@@ -161,12 +163,8 @@ impl ActorContext for ActorCell {
         let actor_cell = ActorCell { inner_cell: Ref::StrongRef(Arc::new(inner_cell)) };
         let internal_ref = ActorRef::with_cell(actor_cell, path.clone());
         let external_ref = Arc::new(internal_ref.clone());
-        {
-            inner.children.lock().unwrap().push((path.clone(), Arc::new(internal_ref)));
-        }
-        {
-            inner.monitoring.lock().unwrap().push(external_ref.clone());
-        }
+        inner.children.lock().unwrap().push((path.clone(), Arc::new(internal_ref)));
+        inner.monitoring.lock().unwrap().push(external_ref.clone());
         external_ref.receive_system_message(SystemMessage::Start);
         // This is a bit messy, but we have a chicken / egg issue otherwise when creating the name
         // resolver actor.
@@ -237,19 +235,24 @@ impl ActorContext for ActorCell {
     fn identify_actor(&self, name: String) -> Future<Option<Arc<CanReceive>>, ()> {
         let inner = unwrap_inner!(self.inner_cell, {
             panic!("Tried to get the actor system of a no longer existing actor while resolving \
-                    apath. This should *never* happen");
+                    a path. This should *never* happen");
         });
         self.ask(inner.system.name_resolver(), ResolveRequest::Get(name))
     }
 }
 
 #[derive(PartialEq)]
+/// Interna representation of the actor's state.
 enum ActorState {
+    /// The actor has panicked and has not yet been restarded.
     Failed,
+    /// The actor is up and running.
     Running,
+    /// The actor is in a clean state, but has not initiazed itself yet.
     Unstarted,
 }
 
+/// Structure used to send a failure message when the actor panics.
 struct Failsafe {
     father: Arc<CanReceive>,
     child: Arc<CanReceive>,
@@ -270,6 +273,7 @@ impl Failsafe {
         }
     }
 
+    /// Cancels the failsafe, means that everything went normally.
     fn cancel(mut self) {
         self.active = false;
     }
@@ -285,18 +289,22 @@ impl Drop for Failsafe {
 }
 
 /// Special messages issued by the actor system.
+/// Note that these are treated with the highest priority and will thus be handled before any
+/// InnerMessage is handled.
 #[derive(Clone)]
 pub enum SystemMessage {
-    /// Restarts the actor by repa=lacing it with a new version created with its Props.
+    /// Restarts the actor by replacing it with a new version created with its ActorFactory.
     Restart,
 
-    /// Makes the actor launch its initialisation.
+    /// Tells the actor to initialize itself.
+    /// Note that the initialization is not done by the father for fairness reasons.
     Start,
 
     /// Tells an actor that its child failed.
     Failure(Arc<CanReceive>),
 }
 
+/// Structure used to store a message and its sender.
 struct Envelope {
     message: InnerMessage,
     sender: Arc<CanReceive>,
@@ -314,13 +322,14 @@ pub enum InnerMessage {
 /// Control Messages.
 #[derive(Clone)]
 pub enum ControlMessage {
-    /// Requests the termination of an actor.
+    /// Requests the termination of the actor.
+    /// This is what is sent when the `context.stop(actor_ref)` is called.
     PoisonPill,
 
-    /// Message sent to monitoring actors when an actpr is terminated.
+    /// Message sent to the monitoring actors when the actor is terminated.
     Terminated(Arc<CanReceive>),
 
-    /// Message sent to the father of an actor to request being dropped.
+    /// Message sent to the father of an actor to request being terminated.
     KillMe(Arc<CanReceive>),
 }
 
@@ -342,6 +351,7 @@ struct InnerActorCell {
 }
 
 impl InnerActorCell {
+    /// Constructor.
     fn new(actor: Arc<Actor>,
            props: Arc<ActorFactory>,
            system: ActorSystem,

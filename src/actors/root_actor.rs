@@ -1,11 +1,13 @@
 /// This is a template for root actors.
 ///
-/// We qualify a `root actor` as teh root of an actor hierarchy, with its own threads.
+/// We qualify a `root actor` as the root of an actor hierarchy.
 ///
-/// Note that there are only two root actors:
+/// Note that there are only two root actors in the current implementation:
 ///
 ///   * The `user actor` which is the root for all user created actors.
 ///   * The `system actor` which is the root for all actors created for the actor system.
+///
+/// The father of these two actors is Cthulhu.
 
 use std::any::Any;
 use std::sync::Arc;
@@ -15,6 +17,7 @@ use actors::{Actor, ActorCell, ActorContext, ActorPath, ActorRef, ActorSystem,
 use actors::cthulhu::Cthulhu;
 use actors::props::ActorFactory;
 
+/// This is the CanReceive for a root actor, and thus the way to interract  with them.
 pub struct RootActorRef {
     actor_cell: ActorCell,
     path: ActorPath,
@@ -33,7 +36,7 @@ impl RootActorRef {
         }
     }
 
-    /// Creates an actor for the root.
+    /// Creates an actor for the root actor.
     pub fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> Arc<ActorRef> {
         self.actor_cell.actor_of(props, name)
     }

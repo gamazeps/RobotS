@@ -5,7 +5,7 @@ pub use self::actor_ref::{CanReceive, ActorPath, ActorRef};
 pub use self::actor_system::ActorSystem;
 pub use self::props::Props;
 
-/// Module for ActorRef, what is used for manipulating Actors.
+/// Module for ActorRef and CanReceive, the interface given to the user to interract with  actors.
 pub mod actor_ref;
 
 /// Module for the ActorSystem.
@@ -36,12 +36,10 @@ impl<T> Message for T where T: Clone + Send + Sync + 'static + Any
 {}
 
 /// Trait to be implemented by args, this is automatically given if a struct is
-/// already `Clone + Sync + 'static + Any`.
+/// already `Clone + Send + Sync + 'static + Any`.
 pub trait Arguments: Clone + Send + Sync + 'static {}
 impl<T> Arguments for T where T: Clone + Send + Sync + 'static
 {}
-
-//unsafe impl<T: Actor> Sync for T {}
 
 /// This is the trait to implement to become an Actor.
 ///
@@ -63,6 +61,8 @@ pub trait Actor: Send + Sync + 'static {
     /// This is put in a separated method because match in rust must check all variations and we
     /// chose not to force the user to make a case for terminations if it doesn not monitor any
     /// actor.
+    // NOTE: this currently panic! because termination notices are not sent in the current
+    // implementation.
     fn receive_termination(&self, _context: ActorCell) {
         panic!("Not implemented");
     }

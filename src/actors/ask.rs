@@ -37,10 +37,10 @@ impl<V: Message, E: Send + 'static> CanReceive for CompleteRef<V, E> {
                 }
             }
             InnerMessage::Control(_) => {
-                // This is a panic because is this happened it would be a big error, indeed this
+                // This is a panic because if this happened it would be a big error, indeed this
                 // should not happen with the current implementation, whereas sending a message of
                 // the wrong type can happen.
-                panic!("Send a control message to a future");
+                panic!("Sent a control message to a future");
             }
         }
     }
@@ -61,6 +61,8 @@ pub trait AskPattern<V, E>: ActorContext where V: Message, E: Send + 'static {
     /// Sends a request to an Actor and stores the potential result in a Future.
     ///
     /// The Future will be completed with the value the actor will answer with.
+    ///
+    /// An example use can be seen in `examples/ask.rs`.
     fn ask<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo) -> Future<V, E>;
 }
 

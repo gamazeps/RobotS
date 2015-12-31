@@ -1,10 +1,17 @@
+/// This example show how an actor behaves once it is restarted after a `panic!`.
+/// Here we change an internal state of the actor and them have it `panic!`, when we check the
+/// value of its internal state after that we see that it has its original value.
+///
+/// This also shows that failures are "gracefully" handled, without the user having to worry to
+/// much about it.
+
 extern crate robots;
 
 use std::any::Any;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Arguments, Props};
+use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props};
 
 #[derive(Copy, Clone)]
 enum InternalStateMessage {
@@ -14,6 +21,7 @@ enum InternalStateMessage {
 }
 
 /// Actor with an internal state that can me modified.
+/// This internal state is used to show that a restarted actor has its original internal state.
 struct InternalState {
     counter: Mutex<u32>,
 }
