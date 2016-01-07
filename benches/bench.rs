@@ -43,7 +43,6 @@ impl InternalState {
 /// When the thousandth is handled the actor sends a message on the above channel.
 fn send_1000_messages(b: &mut Bencher) {
     let actor_system = ActorSystem::new("test".to_owned());
-    actor_system.spawn_threads(1);
 
     let (tx, rx) = channel();
     let tx = Arc::new(Mutex::new(tx));
@@ -81,7 +80,6 @@ impl Dummy {
 /// The created actor is empty in order to just bench the overhead of creation.
 fn create_1000_actors(b: &mut Bencher) {
     let actor_system = ActorSystem::new("test".to_owned());
-    actor_system.spawn_threads(1);
 
     let props = Props::new(Arc::new(Dummy::new), ());
 

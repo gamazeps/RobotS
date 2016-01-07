@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::sync::mpsc::{channel, Sender};
 use std::time::Duration;
 
-use robots::actors::{Actor, ActorSystem, ActorCell, Arguments, ActorContext, CanReceive, Props};
+use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, ActorRef, Props};
 
 #[derive(Debug, PartialEq)]
 enum Res {
@@ -98,20 +98,14 @@ fn recover_from_panic() {
     let answerer = actor_system.actor_of(props.clone(), "receiver".to_owned());
 
     requester.tell_to(answerer.clone(), InternalStateMessage::Set(10));
-    let res: u32 = requester.ask_to::<InternalStateMessage, u32, ()>(answerer.clone(),
-                                                                     InternalStateMessage::Get)
-                            .and_then(|x| Ok(x))
-                            .await()
-                            .unwrap();
-    assert_eq!(10u32, res);
+    let res = answerer.ask(InternalStateMessage::Get).await().unwrap();
+    let res = Box::<Any>::downcast::<u32>(res).unwrap();
+    assert_eq!(10u32, *res);
 
     requester.tell_to(answerer.clone(), InternalStateMessage::Panic);
-    let res: u32 = requester.ask_to::<InternalStateMessage, u32, ()>(answerer.clone(),
-                                                                     InternalStateMessage::Get)
-                            .and_then(|x| Ok(x))
-                            .await()
-                            .unwrap();
-    assert_eq!(0u32, res);
+    let res = answerer.ask(InternalStateMessage::Get).await().unwrap();
+    let res = Box::<Any>::downcast::<u32>(res).unwrap();
+    assert_eq!(0u32, *res);
 
     actor_system.shutdown();
 }
@@ -141,19 +135,15 @@ fn resolve_name_real_path() {
     actor_system.spawn_threads(2);
 
     let props = Props::new(Arc::new(Resolver::new), ());
-    let requester = actor_system.actor_of(props.clone(), "sender".to_owned());
     let answerer = actor_system.actor_of(props.clone(), "answerer".to_owned());
+    let requester = actor_system.actor_of(props.clone(), "sender".to_owned());
 
     // We wait to be sure that the actors will be registered to the name resolver.
     std::thread::sleep(Duration::from_millis(100));
 
-    let res: Option<Arc<CanReceive>> =
-        requester.ask_to::<String, Option<Arc<CanReceive>>, ()>(answerer.clone(),
-                                                                "/user/sender".to_owned())
-                 .await()
-                 .unwrap();
-    let res = res.unwrap();
-    assert!(requester.equals(&*res));
+    let res = answerer.ask("/user/sender".to_owned()).await().unwrap();
+    let res = Box::<Any>::downcast::<Option<ActorRef>>(res).unwrap();
+    assert_eq!(requester.path(), (*res).unwrap().path());
 
     actor_system.shutdown();
 }
@@ -164,21 +154,17 @@ fn resolve_name_fake_path() {
     actor_system.spawn_threads(2);
 
     let props = Props::new(Arc::new(Resolver::new), ());
-    let requester = actor_system.actor_of(props.clone(), "sender".to_owned());
     let answerer = actor_system.actor_of(props.clone(), "answerer".to_owned());
 
     // We wait to be sure that the actors will be registered to the name resolver.
     std::thread::sleep(Duration::from_millis(100));
 
-    let res: Option<Arc<CanReceive>> =
-        requester.ask_to::<String, Option<Arc<CanReceive>>, ()>(answerer.clone(),
-                                                                "/foo/bar".to_owned())
-                 .await()
-                 .unwrap();
+    let res = answerer.ask("/foo/bar".to_owned()).await().unwrap();
+    let res = *Box::<Any>::downcast::<Option<ActorRef>>(res).unwrap();
 
     match res {
         None => {}
-        Some(_) => panic!(""),
+        Some(_) => panic!("The name resolver gave an ActorRef when he should not."),
     };
 
     actor_system.shutdown();

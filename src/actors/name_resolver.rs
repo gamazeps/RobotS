@@ -4,16 +4,16 @@ use std::sync::Mutex;
 use std::any::Any;
 use std::sync::Arc;
 
-use actors::{Actor, ActorCell, ActorContext, CanReceive};
+use actors::{Actor, ActorCell, ActorContext, ActorPath, ActorRef};
 
 /// Messages handled by the NameResolver.
 #[derive(Clone)]
 pub enum ResolveRequest {
     /// Used when we create an actor.
-    Add(Arc<CanReceive>),
+    Add(ActorRef),
 
     /// Used when we delete an actor.
-    Remove(Arc<String>),
+    Remove(Arc<ActorPath>),
 
     /// Used when we want to find the actor associated to a path.
     Get(String),
@@ -29,7 +29,7 @@ pub enum ResolveRequest {
 /// When an actor terminates one of its children it send an unregistration request to the name
 /// resolver.
 pub struct NameResolver {
-    index: Mutex<HashMap<String, Arc<CanReceive>>>,
+    index: Mutex<HashMap<Arc<ActorPath>, ActorRef>>,
 }
 
 impl Actor for NameResolver {
@@ -38,15 +38,15 @@ impl Actor for NameResolver {
             match *message {
                 ResolveRequest::Add(address) => {
                     let mut index = self.index.lock().unwrap();
-                    index.insert((*address.path()).clone(), address);
+                    index.insert(address.path(), address);
                 }
                 ResolveRequest::Remove(address) => {
                     let mut index = self.index.lock().unwrap();
-                    index.remove(&*address);
+                    index.remove(&address);
                 }
                 ResolveRequest::Get(address) => {
                     let index = self.index.lock().unwrap();
-                    context.tell(context.sender(), index.get(&address).cloned());
+                    context.tell(context.sender(), index.get(&ActorPath::new_local(address)).cloned());
                 }
             }
         }

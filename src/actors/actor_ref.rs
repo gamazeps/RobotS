@@ -1,105 +1,174 @@
 extern crate eventual;
 
-use self::eventual::Future;
+use self::eventual::{Complete, Future};
 
-use std::sync::Arc;
+use std::any::Any;
+use std::sync::{Arc, Mutex};
 
 use actors::{ActorContext, InnerMessage, Message, SystemMessage};
 use actors::actor_cell::ActorCell;
-use actors::ask::AskPattern;
+use actors::cthulhu::Cthulhu;
 
-/// Type used to represent an ActorPath.
-/// This is juste an Arc<String> now but will contain more information later.
-pub type ActorPath = Arc<String>;
-
-/// This is a reference to an Actor and what is supposed to be manipulated by the user.
-///
-/// The only thing it can do is send and receive messages (according to the actor model defined
-/// by Hewitt).
-pub struct ActorRef {
-    actor_cell: ActorCell,
-    path: ActorPath,
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub enum ActorPath {
+    Local(String),
+    Distant(ConnectionInfo),
 }
 
-impl Clone for ActorRef {
-    fn clone(&self) -> ActorRef {
-        ActorRef::with_cell(self.actor_cell.clone(), self.path().clone())
+impl ActorPath {
+    pub fn new_local(path: String) -> Arc<ActorPath> {
+        Arc::new(ActorPath::Local(path))
+    }
+
+    pub fn logical_path(&self) -> &String {
+        match *self {
+            ActorPath::Local(ref s) => s,
+            ActorPath::Distant(ref c) => &(c.distant_logical_path),
+        }
+    }
+
+    pub fn child(&self, name: String) -> Arc<ActorPath> {
+        match *self {
+            ActorPath::Local(ref s) => {
+                let path = format!("{}/{}", s, name);
+                ActorPath::new_local(path)
+            },
+            ActorPath::Distant(_) => panic!("Cannot create a child for a distant actor."),
+        }
     }
 }
 
+#[derive(Debug, Eq, Hash, PartialEq)]
+pub struct ConnectionInfo {
+    distant_logical_path: String,
+    addr_port: String,
+}
+
+#[derive(Clone)]
+enum InnerActor {
+    Cthulhu(Cthulhu),
+    Actor(ActorCell),
+    Complete(CompleteRef),
+}
+
+#[derive(Clone)]
+struct CompleteRef {
+    complete: Arc<Mutex<Option<Complete<Box<Any + Send>, &'static str>>>>,
+}
+
+impl CompleteRef {
+    fn new(complete: Complete<Box<Any + Send>, &'static str>) -> CompleteRef {
+        CompleteRef {
+            complete: Arc::new(Mutex::new(Some(complete))),
+        }
+    }
+
+    fn complete(&self, message: InnerMessage) {
+        match message {
+            InnerMessage::Message(data) => {
+                let mut guard = self.complete.lock().unwrap();
+                let complete = guard.take();
+                *guard = None;
+                match complete {
+                    Some(complete) => complete.complete(data),
+                    None => println!("Tried to send more than one message to a Complete"),
+                }
+            },
+            _ => panic!("Send a weird inner message to a future, this is a bug.")
+        }
+    }
+}
+
+pub struct ActorRef {
+    inner_actor: Option<InnerActor>,
+    path: Arc<ActorPath>,
+}
+
 impl ActorRef {
-    /// Creates an ActorRef with the given ActorCell.
-    pub fn with_cell(cell: ActorCell, path: ActorPath) -> ActorRef {
+    pub fn new_distant(path: Arc<ActorPath>) -> ActorRef {
         ActorRef {
-            actor_cell: cell,
+            inner_actor: None,
             path: path,
         }
     }
 
-    /// Sends a Message to a CanReceive.
-    pub fn tell_to<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo) {
-        self.actor_cell.tell(to, message);
+    pub fn with_cthulhu(cthulhu: Cthulhu) -> ActorRef {
+        let path = ActorPath::new_local("/".to_owned());
+        ActorRef {
+            inner_actor: Some(InnerActor::Cthulhu(cthulhu)),
+            path: path,
+        }
     }
 
-    /// Sends a request to a CanReceive, the answer to this request is put in the Future returned
-    /// by ask_to.
-    pub fn ask_to<MessageTo: Message, V: Message, E: Send + 'static>(&self,
-                                                                     to: Arc<CanReceive>,
-                                                                     message: MessageTo)
-                                                                     -> Future<V, E> {
-        self.actor_cell.ask(to, message)
-    }
-}
-
-/// This is the interface used for structs to which we can send messages.
-///
-/// We may call them ActorRef in the documentation because they act as an interface to something
-/// that acts like an actor (abd are actually ActorRef most of the time)..
-pub trait CanReceive: Send + Sync {
-
-    /// Receives a message and then schedules the CanReceive in the ActorSystem for handling the
-    /// message.
-    fn receive(&self, message: InnerMessage, sender: Arc<CanReceive>);
-
-    /// Receives a system generated message and then schedules the CanReceive in the ActorSystem for
-    /// handling the message.
-    ///
-    /// This is a diffreen method than receive_message because it does not require sender
-    /// information.
-    fn receive_system_message(&self, system_message: SystemMessage);
-
-    /// Handles a message that has been received.
-    fn handle(&self);
-
-    /// Logical path to the CanReceive.
-    fn path(&self) -> ActorPath;
-
-    /// Cheks if two CanReceive have the same underlying actor (or some other structure).
-    ///
-    /// Note that it only compares the logical path.
-    // FIXME(gamazeps): investigate having an ID for actors, so that we can check if two ActorRef
-    // with the same logical path really have the same underlying actor.
-    // This could happpen if I hold an old reference to an actor with some path, this actor is
-    // deleted and then a new actor is created with the same path.
-    fn equals(&self, other: &CanReceive) -> bool {
-        self.path() == other.path()
-    }
-}
-
-impl CanReceive for ActorRef {
-    fn receive(&self, message: InnerMessage, sender: Arc<CanReceive>) {
-        self.actor_cell.receive_message(message, sender);
+    pub fn with_cell(cell: ActorCell, path: Arc<ActorPath>) -> ActorRef {
+        ActorRef {
+            inner_actor: Some(InnerActor::Actor(cell)),
+            path: path,
+        }
     }
 
-    fn receive_system_message(&self, system_message: SystemMessage) {
-        self.actor_cell.receive_system_message(system_message);
+    pub fn with_complete(complete: Complete<Box<Any + Send>, &'static str>) -> ActorRef {
+        ActorRef {
+            inner_actor: Some(InnerActor::Complete(CompleteRef::new(complete))),
+            // FIXME(gamazeps) future registration is not working here, this is not cool.
+            path: ActorPath::new_local("local_future".to_owned()),
+        }
     }
 
-    fn handle(&self) {
-        self.actor_cell.handle_envelope();
+    pub fn receive_system_message(&self, system_message: SystemMessage) {
+        let inner = self.inner_actor.as_ref().expect("Tried to put a system message in the mailbox of a distant actor.");
+        match *inner {
+            InnerActor::Complete(_) => panic!("Futures should not receive system messages."),
+            InnerActor::Actor(ref actor) => actor.receive_system_message(system_message),
+            InnerActor::Cthulhu(ref cthulhu) => cthulhu.receive_system_message(),
+        };
     }
 
-    fn path(&self) -> ActorPath {
+    pub fn receive(&self, message: InnerMessage, sender: ActorRef) {
+        let inner = self.inner_actor.as_ref().expect("Tried to put a message in the mailbox of a distant actor.");
+        match *inner {
+            InnerActor::Complete(ref complete) => complete.complete(message),
+            InnerActor::Actor(ref actor) => actor.receive_message(message, sender),
+            InnerActor::Cthulhu(ref cthulhu) => cthulhu.receive(),
+        };
+    }
+
+    pub fn handle(&self) {
+        let inner = self.inner_actor.as_ref().expect("");
+        match *inner {
+            InnerActor::Complete(_) => panic!("In the current model futures should not handle messages."),
+            InnerActor::Actor(ref actor) => actor.handle_envelope(),
+            InnerActor::Cthulhu(ref cthulhu) => cthulhu.handle(),
+        };
+    }
+
+    pub fn path(&self) -> Arc<ActorPath> {
         self.path.clone()
+    }
+
+    pub fn tell_to<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) {
+        let inner = self.inner_actor.as_ref().expect("");
+        match *inner {
+            InnerActor::Complete(_) => panic!("A future should not be sending a message to an actor this way."),
+            InnerActor::Actor(_) => to.receive(InnerMessage::Message(Box::new(message) as Box<Any + Send>), self.clone()),
+            InnerActor::Cthulhu(ref cthulhu) => cthulhu.receive(),
+        };
+    }
+
+    pub fn ask<MessageTo: Message>(&self, message: MessageTo)
+        -> Future<Box<Any + Send>, &'static str> {
+        let (complete, future) = Future::<Box<Any + Send>, &'static str>::pair();
+        self.receive(InnerMessage::Message(Box::new(message) as Box<Any + Send>),
+                    ActorRef::with_complete(complete));
+        future
+    }
+}
+
+impl Clone for ActorRef {
+    fn clone(&self) -> ActorRef {
+        ActorRef {
+            inner_actor: self.inner_actor.clone(),
+            path: self.path.clone(),
+        }
     }
 }

@@ -1,12 +1,15 @@
+use std::any::Any;
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
 
-use actors::{ActorRef, CanReceive, Props};
+use actors::{ActorPath, ActorRef, Props};
+use actors::actor_cell::{ActorCell, SystemMessage};
+use actors::actor_ref::eventual::Async;
 use actors::cthulhu::Cthulhu;
 use actors::name_resolver::NameResolver;
 use actors::props::ActorFactory;
-use actors::root_actor::RootActorRef;
+use actors::root_actor::RootActor;
 
 /// This is failsafe used to relaunch consumer threads if they panic!.
 struct Relauncher {
@@ -56,25 +59,39 @@ impl ActorSystem {
     /// Note that no threads are started.
     pub fn new(name: String) -> ActorSystem {
         let actor_system = ActorSystem { inner: Arc::new(InnerActorSystem::new(name)) };
-        let cthulhu = Arc::new(Cthulhu::new(actor_system.clone()));
+        let cthulhu = Cthulhu::new(actor_system.clone());
+        let cthulhu = ActorRef::with_cthulhu(cthulhu);
         *actor_system.inner.cthulhu.write().unwrap() = Some(cthulhu.clone());
-        let user_actor = RootActorRef::new(actor_system.clone(),
-                                           "/user".to_owned(),
-                                           cthulhu.clone());
+        let user_actor_path = ActorPath::new_local("/user".to_owned());
+        let user_actor_cell = ActorCell::new(Props::new(Arc::new(RootActor::new), ()),
+                                                actor_system.clone(),
+                                                cthulhu.clone(),
+                                                user_actor_path.clone());
+        let user_actor = ActorRef::with_cell(user_actor_cell, user_actor_path);
+        user_actor.receive_system_message(SystemMessage::Start);
         *actor_system.inner.user_actor.write().unwrap() = Some(user_actor);
-        let system_actor = RootActorRef::new(actor_system.clone(),
-                                             "/system".to_owned(),
-                                             cthulhu.clone());
-        *actor_system.inner.name_resolver.write().unwrap() =
-            Some(system_actor.actor_of(Props::new(Arc::new(NameResolver::new), ()),
-                                       "name_resolver".to_owned()));
+        let system_actor_path = ActorPath::new_local("/system".to_owned());
+        let system_actor_cell = ActorCell::new(Props::new(Arc::new(RootActor::new), ()),
+                                                actor_system.clone(),
+                                                cthulhu.clone(),
+                                                system_actor_path.clone());
+        let system_actor = ActorRef::with_cell(system_actor_cell, system_actor_path);
+        system_actor.receive_system_message(SystemMessage::Start);
         *actor_system.inner.system_actor.write().unwrap() = Some(system_actor);
+        actor_system.spawn_threads(1);
+        let name_resolver = actor_system.system_actor_of(Props::new(Arc::new(NameResolver::new), ()), "name_resolver".to_owned());
+        *actor_system.inner.name_resolver.write().unwrap() = Some(name_resolver);
         actor_system
     }
 
-    /// Spawns an Actor created using the Props given.
-    pub fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> Arc<ActorRef> {
+    /// Spawns an Actor created using the Props given for the user.
+    pub fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> ActorRef {
         self.inner.actor_of(props, name)
+    }
+
+    /// Spawns an Actor created using the Props given for the system.
+    pub fn system_actor_of(&self, props: Arc<ActorFactory>, name: String) -> ActorRef {
+        self.inner.system_actor_of(props, name)
     }
 
     /// Shuts the actor system down.
@@ -85,12 +102,12 @@ impl ActorSystem {
         self.inner.shutdown();
     }
 
-    /// Enqueues the given CanReceive in the queue of CanRecieve with message to handle.
-    pub fn enqueue_actor(&self, actor_ref: Arc<CanReceive>) {
+    /// Enqueues the given ActorRef in the queue of ActorRef with message to handle.
+    pub fn enqueue_actor(&self, actor_ref: ActorRef) {
         self.inner.enqueue_actor(actor_ref);
     }
 
-    /// Spawns a thread that will have CanReceive handle their messages.
+    /// Spawns a thread that will have ActorRef handle their messages.
     ///
     /// This thread can be terminated by calling `terminate_thread`.
     pub fn spawn_thread(&self) {
@@ -110,7 +127,7 @@ impl ActorSystem {
                     Err(TryRecvError::Empty) => {}
                 };
 
-                // We try to get a CanReceive with a message to handle.
+                // We try to get an ActorRef with a message to handle.
                 let actor_ref = {
                     let lock = actors_queue.lock().unwrap();
                     lock.try_recv()
@@ -147,8 +164,8 @@ impl ActorSystem {
         self.inner.terminate_threads(n);
     }
 
-    /// Gives a CanReceive to the name resolver actor.
-    pub fn name_resolver(&self) -> Arc<CanReceive> {
+    /// Gives the ActorRef of the name resolver actor.
+    pub fn name_resolver(&self) -> ActorRef {
         match self.inner.name_resolver.read().unwrap().as_ref() {
             None => panic!("The name resolver is not initialized."),
             Some(resolver) => resolver.clone(),
@@ -168,15 +185,15 @@ struct InnerActorSystem {
     consumer_threads_sender: Mutex<Sender<()>>,
     consumer_threads_receiver: Arc<Mutex<Receiver<()>>>,
     n_threads: Mutex<u32>,
-    // Sends Canreceive to be handled on that channel.
-    actors_queue_sender: Mutex<Sender<Arc<CanReceive>>>,
+    // Sends ActorRefs to be handled on that channel.
+    actors_queue_sender: Mutex<Sender<ActorRef>>,
     // Receiving end to give to the thread pool.
-    actors_queue_receiver: Arc<Mutex<Receiver<Arc<CanReceive>>>>,
-    cthulhu: RwLock<Option<Arc<Cthulhu>>>,
-    user_actor: RwLock<Option<RootActorRef>>,
-    system_actor: RwLock<Option<RootActorRef>>,
-    // CanReceive to the name resolver.
-    name_resolver: RwLock<Option<Arc<CanReceive>>>,
+    actors_queue_receiver: Arc<Mutex<Receiver<ActorRef>>>,
+    cthulhu: RwLock<Option<ActorRef >>,
+    user_actor: RwLock<Option<ActorRef>>,
+    system_actor: RwLock<Option<ActorRef>>,
+    // ActorRef to the name resolver.
+    name_resolver: RwLock<Option<ActorRef>>,
 }
 
 impl InnerActorSystem {
@@ -200,11 +217,28 @@ impl InnerActorSystem {
     /// Spawns an Actor for the user with the given ActorFactory.
     ///
     /// This will be part of the user cator hierarchy.
-    fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> Arc<ActorRef> {
+    fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> ActorRef {
         // Not having the user actor in a Mutex is ok because the actor_of function already has
         // mutual exclusion, so we are in the clear.
         match self.user_actor.read().unwrap().clone() {
-            Some(user_actor) => user_actor.actor_of(props, name),
+            Some(user_actor) => {
+                let future = user_actor.ask((props, name));
+                let answer = future.await().unwrap();
+                *Box::<Any>::downcast::<ActorRef>(answer).unwrap()
+            },
+            None => panic!("The user actor is not initialised"),
+        }
+    }
+
+    fn system_actor_of(&self, props: Arc<ActorFactory>, name: String) -> ActorRef {
+        // Not having the user actor in a Mutex is ok because the actor_of function already has
+        // mutual exclusion, so we are in the clear.
+        match self.system_actor.read().unwrap().clone() {
+            Some(system_actor) => {
+                let future = system_actor.ask((props, name));
+                let answer = future.await().unwrap();
+                *Box::<Any>::downcast::<ActorRef>(answer).unwrap()
+            },
             None => panic!("The user actor is not initialised"),
         }
     }
@@ -220,8 +254,8 @@ impl InnerActorSystem {
         *self.cthulhu.write().unwrap() = None;
     }
 
-    /// Enqueues the given CanReceive in the list of CanReceive with messages to be handled.
-    fn enqueue_actor(&self, actor_ref: Arc<CanReceive>) {
+    /// Enqueues the given ActorRef in the list of ActorRef with messages to be handled.
+    fn enqueue_actor(&self, actor_ref: ActorRef) {
         match self.actors_queue_sender.lock().unwrap().send(actor_ref) {
             Ok(_) => return,
             Err(_) => {
