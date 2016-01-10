@@ -7,6 +7,7 @@ extern crate eventual;
 
 use std::any::Any;
 use std::collections::VecDeque;
+use std::mem;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
 use self::eventual::{Async, Future};
@@ -166,7 +167,14 @@ impl ActorContext for ActorCell {
     }
 
     fn tell<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) {
-        to.receive(InnerMessage::Message(Box::new(message)), self.actor_ref());
+        let path = to.path();
+        match *path {
+            ActorPath::Local(_) => to.receive(InnerMessage::Message(Box::new(message)), self.actor_ref()),
+            ActorPath::Distant(ref path) => {
+                println!("Sent a message of size {} to distant actor {}:{}", mem::size_of::<MessageTo>(),
+                path.distant_logical_path(), path.addr_port());
+            },
+        }
     }
 
     fn sender(&self) -> ActorRef {

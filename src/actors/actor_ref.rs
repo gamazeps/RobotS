@@ -26,6 +26,15 @@ impl ActorPath {
         Arc::new(ActorPath::Local(path))
     }
 
+    /// Creates a new distant ActorPath.
+    pub fn new_distant(distant_logical_path: String, addr_port: String) -> Arc<ActorPath> {
+        Arc::new(ActorPath::Distant(
+                ConnectionInfo {
+                    distant_logical_path: distant_logical_path,
+                    addr_port: addr_port,
+                }))
+    }
+
     /// Gives a reference to the logical path of an actor.
     ///
     /// Note that this gives the local logical path whether the actor is local or not.
@@ -60,6 +69,18 @@ impl ActorPath {
 pub struct ConnectionInfo {
     distant_logical_path: String,
     addr_port: String,
+}
+
+
+impl ConnectionInfo {
+    /// Distant logical path.
+    pub fn distant_logical_path(&self) -> &String {
+        &self.distant_logical_path
+    }
+    /// Address and port of the distant actor.
+    pub fn addr_port(&self) -> &String {
+        &self.addr_port
+    }
 }
 
 #[derive(Clone)]
