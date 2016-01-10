@@ -56,7 +56,7 @@ pub struct ActorSystem {
 impl ActorSystem {
     /// Creates a new ActorSystem.
     ///
-    /// Note that no threads are started.
+    /// Note that one thread is started.
     pub fn new(name: String) -> ActorSystem {
         let actor_system = ActorSystem { inner: Arc::new(InnerActorSystem::new(name)) };
         let cthulhu = Cthulhu::new(actor_system.clone());

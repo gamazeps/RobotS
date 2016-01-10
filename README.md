@@ -88,7 +88,10 @@ let props = Props::new(Arc::new(Dummy::new), ());
 let _actor = actor_system.actor_of(props, "dummy".to_owned());
 ```
 
-The `actor_of` method will give you an `Arc<ActorRef>` to the created actor.
+The `actor_of` method will give you an `ActorRef` to the created actor.
+
+Note that the first way to create actors is much faster than the second one (about 10 times), so it
+should only be used if you want to create a new actor hierachy.
 
 ### Handle messages
 
@@ -118,13 +121,13 @@ This gives most of the communication methods and features expected of an actor:
 
 ```rust
     /// Returns an ActorRef of the Actor.
-    fn actor_ref(&self) -> Arc<ActorRef>;
+    fn actor_ref(&self) -> ActorRef;
 
     /// Spawns a child actor.
-    fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> Arc<ActorRef>;
+    fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> ActorRef;
 
-    /// Sends a Message to the targeted CanReceive.
-    fn tell<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo);
+    /// Sends a Message to the targeted ActorRef.
+    fn tell<MessageTo: Message>(&self, to: ActorRef, message: MessageTo);
 
     /// Requests the targeted actor to stop.
     fn stop(&self, actor_ref: Arc<CanReceive>);
@@ -133,37 +136,26 @@ This gives most of the communication methods and features expected of an actor:
     fn kill_me(&self);
 
     /// Sender of the message being handled.
-    fn sender(&self) -> Arc<CanReceive>;
+    fn sender(&self) -> ActorRef;
 
     /// Father of the actor.
-    fn father(&self) -> Arc<CanReceive>;
+    fn father(&self) -> ActorRef;
 
     /// Children of the actor.
     fn children(&self) -> Vec<Arc<CanReceive>>;
 
     /// Lifecycle monitoring, list of monitored actors.
-    fn monitoring(&self) -> Vec<Arc<CanReceive>>;
+    fn monitoring(&self) -> Vec<ActorRef>;
 
     /// Logical path to the actor, such as `/user/foo/bar/baz`.
-    fn path(&self) -> Arc<String>;
+    fn path(&self) -> Arc<ActorPath>;
 
     /// Tries to give an address from an actor path.
     /// Note that eventual futures are lazy, thus you need to await on the future at dome point,
     /// this makes this a synchronous call.
     ///
     /// This should be fixed in a new version.
-    fn identify_actor(&self, _name: String) -> Future<Option<Arc<CanReceive>>, ()>;
-```
-
-If you use the `robots::actors::ask::AskPattern` you can also use the `ask` method.
-
-```rust
-    /// Sends a request to an Actor and stores the potential result in a Future.
-    ///
-    /// The Future will be completed with the value the actor answers with.
-    ///
-    /// An example use can be seen in `examples/ask.rs`.
-    fn ask<MessageTo: Message>(&self, to: Arc<CanReceive>, message: MessageTo) -> Future<V, E>;
+    fn identify_actor(&self, _name: String) -> Future<Option<ActorRef>>, &'static str>;
 ```
 
 ## Contributing
