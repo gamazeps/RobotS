@@ -36,7 +36,7 @@ impl Actor for InternalState {
                     context.tell(context.sender(), *self.last.lock().unwrap())
                 }
                 InternalStateMessage::Set(message) => {
-                    // Here mixing the test actir for the two tests might seem a bit weird,
+                    // Here mixing the test actor for the two tests might seem a bit weird,
                     // but we would get two very similar actors otherwise.
                     let mut last = self.last.lock().unwrap();
                     if message <= *last {
