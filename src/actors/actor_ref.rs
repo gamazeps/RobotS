@@ -36,7 +36,7 @@ impl ActorPath {
         }
     }
 
-    /// Creates an ActirPath for a child of an actor.
+    /// Creates an ActorPath for a child of an actor.
     ///
     /// This gives a Local variant, because actors are always created locally.
     pub fn child(&self, name: String) -> Arc<ActorPath> {
