@@ -110,7 +110,7 @@ impl CompleteRef {
                 *guard = None;
                 match complete {
                     Some(complete) => complete.complete(data),
-                    None => println!("Tried to send more than one message to a Complete"),
+                    None => panic!("Tried to send more than one message to a Complete"),
                 }
             },
             _ => panic!("Send a weird inner message to a future, this is a bug.")

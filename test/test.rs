@@ -169,3 +169,54 @@ fn resolve_name_fake_path() {
 
     actor_system.shutdown();
 }
+
+// This actor simply answers twice with () when send a message.
+// He also sends () through a channel when restarted.
+struct DoubleAnswer {
+    sender: Arc<Mutex<Sender<()>>>,
+}
+
+impl Actor for DoubleAnswer {
+    fn post_restart(&self, _context: ActorCell) {
+        let mut sender = self.sender.lock().unwrap();
+        sender.send(());
+    }
+
+    fn receive(&self, _message: Box<Any>, context: ActorCell) {
+        context.tell(context.sender(), ());
+        context.tell(context.sender(), ());
+    }
+}
+
+impl DoubleAnswer {
+    fn new(sender: Arc<Mutex<Sender<()>>>) -> DoubleAnswer {
+        DoubleAnswer {
+            sender: sender
+        }
+    }
+}
+
+
+#[test]
+fn ask_answer_twice() {
+    let actor_system = ActorSystem::new("test".to_owned());
+
+    let (tx, rx) = channel();
+    let tx = Arc::new(Mutex::new(tx));
+
+    let props = Props::new(Arc::new(DoubleAnswer::new), tx);
+    let answerer = actor_system.actor_of(props.clone(), "answerer".to_owned());
+
+    let res = answerer.ask(()).await().unwrap();
+    let res = *Box::<Any>::downcast::<()>(res).unwrap();
+    // We chack that the value contained in the future is the correct one.
+    assert_eq!(res, ());
+
+    // We check that the actor has been restarted because of a panic (reason is not caught yet).
+    let res = rx.recv();
+    assert_eq!(res, Ok(()));
+
+    std::thread::sleep(Duration::from_millis(10));
+
+    actor_system.shutdown();
+}
