@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-use std::sync::Mutex;
-
 use std::any::Any;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use actors::{Actor, ActorCell, ActorContext, ActorPath, ActorRef};
 
