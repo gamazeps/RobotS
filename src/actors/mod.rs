@@ -26,6 +26,9 @@ mod root_actor;
 /// Module with the name resolver actor.
 mod name_resolver;
 
+/// Robots Future implementation.
+mod future;
+
 /// Trait to be implemented by messages, this is automatically given if a struct is
 /// already `Clone + Send + Sync + 'static + Any`.
 pub trait Message: Clone + Send + Sync + 'static + Any {}
