@@ -13,9 +13,6 @@ dev = ["clippy"]
 clippy = {version = "*", optional = true}
 rand = "0.3.0"
 
-[dependencies.eventual]
-version = "0.1.5"
-
 [lib]
 name = "robots"
 path = "src/lib.rs"

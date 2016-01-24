@@ -3,16 +3,13 @@
 /// It is used to handle messages, system messages, termination, initialization, restarting and
 /// creation of actors.
 
-extern crate eventual;
-
 use std::any::Any;
 use std::collections::VecDeque;
 use std::mem;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
-use self::eventual::{Async, Future};
-
-use actors::{Actor, ActorPath, ActorRef, ActorSystem, Message};
+use actors::{Actor, ActorPath, ActorRef, ActorSystem, Message, Props};
+use actors::future::{Future, FutureMessages, FutureState};
 use actors::name_resolver::ResolveRequest;
 use actors::props::ActorFactory;
 
@@ -109,6 +106,11 @@ pub trait ActorContext {
     /// Sends a Message to the targeted ActorRef.
     fn tell<MessageTo: Message>(&self, to: ActorRef, message: MessageTo);
 
+    fn ask<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) -> ActorRef;
+
+    /// Completes a Future.
+    fn complete<MessageTo: Message>(&self, to: ActorRef, complete: MessageTo);
+
     /// Requests the targeted actor to stop.
     fn stop(&self, actor_ref: ActorRef);
 
@@ -130,12 +132,7 @@ pub trait ActorContext {
     /// Logical path to the actor, such as `/user/foo/bar/baz`
     fn path(&self) -> Arc<ActorPath>;
 
-    /// Tries to give an address from an actor path.
-    /// Note that eventual futures are lazy, thus you need to await on the Future at some point,
-    /// this makes this a synchronous call.
-    // FIXME(gamazeps): Fix that. This should be fixable by improving on the futures without
-    // touching this specific code here.
-    fn identify_actor(&self, _name: String) -> Future<Option<ActorRef>, &'static str>;
+    fn identify_actor(&self, name: String) -> ActorRef;
 }
 
 impl ActorContext for ActorCell {
@@ -175,6 +172,17 @@ impl ActorContext for ActorCell {
                 path.distant_logical_path(), path.addr_port());
             },
         }
+    }
+
+    fn ask<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) -> ActorRef {
+        // FIXME(gamazeps) fix the naming.
+        let future = self.actor_of(Props::new(Arc::new(Future::new), ()), "lol".to_owned());
+        future.tell_to(to, message);
+        future
+    }
+
+    fn complete<MessageTo: Message>(&self, future: ActorRef, complete: MessageTo) {
+        self.tell(future, FutureMessages::Complete(Arc::new(complete)));
     }
 
     fn sender(&self) -> ActorRef {
@@ -230,16 +238,12 @@ impl ActorContext for ActorCell {
         inner.path.clone()
     }
 
-    fn identify_actor(&self, name: String) -> Future<Option<ActorRef>, &'static str> {
+    fn identify_actor(&self, name: String) -> ActorRef {
         let inner = unwrap_inner!(self.inner_cell, {
             panic!("Tried to get the actor system of a no longer existing actor while resolving \
                     a path. This should *never* happen");
         });
-        inner.system.name_resolver()
-            .ask(ResolveRequest::Get(name))
-            .and_then(|x| {
-                Ok(*Box::<Any>::downcast::<Option<ActorRef>>(x).unwrap())
-            })
+        self.ask(inner.system.name_resolver(), ResolveRequest::Get(name))
     }
 }
 

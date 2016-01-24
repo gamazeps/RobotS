@@ -5,7 +5,6 @@ use std::thread;
 
 use actors::{ActorPath, ActorRef, Props};
 use actors::actor_cell::{ActorCell, SystemMessage};
-use actors::actor_ref::eventual::Async;
 use actors::cthulhu::Cthulhu;
 use actors::name_resolver::NameResolver;
 use actors::props::ActorFactory;
@@ -222,9 +221,7 @@ impl InnerActorSystem {
         // mutual exclusion, so we are in the clear.
         match self.user_actor.read().unwrap().clone() {
             Some(user_actor) => {
-                let future = user_actor.ask((props, name));
-                let answer = future.await().unwrap();
-                *Box::<Any>::downcast::<ActorRef>(answer).unwrap()
+                unimplemented!()
             },
             None => panic!("The user actor is not initialised"),
         }
@@ -235,9 +232,7 @@ impl InnerActorSystem {
         // mutual exclusion, so we are in the clear.
         match self.system_actor.read().unwrap().clone() {
             Some(system_actor) => {
-                let future = system_actor.ask((props, name));
-                let answer = future.await().unwrap();
-                *Box::<Any>::downcast::<ActorRef>(answer).unwrap()
+                unimplemented!()
             },
             None => panic!("The user actor is not initialised"),
         }

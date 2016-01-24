@@ -1,9 +1,5 @@
-extern crate eventual;
-
-use self::eventual::{Complete, Future};
-
 use std::any::Any;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use actors::{ActorContext, InnerMessage, Message, SystemMessage};
 use actors::actor_cell::ActorCell;
@@ -87,35 +83,6 @@ impl ConnectionInfo {
 enum InnerActor {
     Cthulhu(Cthulhu),
     Actor(ActorCell),
-    Complete(CompleteRef),
-}
-
-#[derive(Clone)]
-struct CompleteRef {
-    complete: Arc<Mutex<Option<Complete<Box<Any + Send>, &'static str>>>>,
-}
-
-impl CompleteRef {
-    fn new(complete: Complete<Box<Any + Send>, &'static str>) -> CompleteRef {
-        CompleteRef {
-            complete: Arc::new(Mutex::new(Some(complete))),
-        }
-    }
-
-    fn complete(&self, message: InnerMessage) {
-        match message {
-            InnerMessage::Message(data) => {
-                let mut guard = self.complete.lock().unwrap();
-                let complete = guard.take();
-                *guard = None;
-                match complete {
-                    Some(complete) => complete.complete(data),
-                    None => panic!("Tried to send more than one message to a Complete"),
-                }
-            },
-            _ => panic!("Send a weird inner message to a future, this is a bug.")
-        }
-    }
 }
 
 /// An `ActorRef` is the way used to interract with something that acts as an actor.
@@ -156,22 +123,11 @@ impl ActorRef {
         }
     }
 
-    /// Creates a new ActorRef to a local Future, with the given `Complete` (a C`omplete` is what is
-    /// used to complete a `Future`).
-    pub fn with_complete(complete: Complete<Box<Any + Send>, &'static str>) -> ActorRef {
-        ActorRef {
-            inner_actor: Some(InnerActor::Complete(CompleteRef::new(complete))),
-            // FIXME(gamazeps) future registration is not working here, this is not cool.
-            path: ActorPath::new_local("local_future".to_owned()),
-        }
-    }
-
     /// Receives a system message such as `Start`, `Restart` or a `Failure(ActorRef)`, puts it in
     /// the system mailbox and schedules the actor if needed.
     pub fn receive_system_message(&self, system_message: SystemMessage) {
         let inner = self.inner_actor.as_ref().expect("Tried to put a system message in the mailbox of a distant actor.");
         match *inner {
-            InnerActor::Complete(_) => panic!("Futures should not receive system messages."),
             InnerActor::Actor(ref actor) => actor.receive_system_message(system_message),
             InnerActor::Cthulhu(ref cthulhu) => cthulhu.receive_system_message(),
         };
@@ -181,7 +137,6 @@ impl ActorRef {
     pub fn receive(&self, message: InnerMessage, sender: ActorRef) {
         let inner = self.inner_actor.as_ref().expect("Tried to put a message in the mailbox of a distant actor.");
         match *inner {
-            InnerActor::Complete(ref complete) => complete.complete(message),
             InnerActor::Actor(ref actor) => actor.receive_message(message, sender),
             InnerActor::Cthulhu(ref cthulhu) => cthulhu.receive(),
         };
@@ -191,7 +146,6 @@ impl ActorRef {
     pub fn handle(&self) {
         let inner = self.inner_actor.as_ref().expect("");
         match *inner {
-            InnerActor::Complete(_) => panic!("In the current model futures should not handle messages."),
             InnerActor::Actor(ref actor) => actor.handle_envelope(),
             InnerActor::Cthulhu(ref cthulhu) => cthulhu.handle(),
         };
@@ -206,7 +160,6 @@ impl ActorRef {
     pub fn tell_to<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) {
         let inner = self.inner_actor.as_ref().expect("");
         match *inner {
-            InnerActor::Complete(_) => panic!("A future should not be sending a message to an actor this way."),
             InnerActor::Actor(_) => {
                 // This is done in order to avoid a trivial cast warning.
                 let message: Box<Any + Send> = Box::new(message);
@@ -214,17 +167,6 @@ impl ActorRef {
             },
             InnerActor::Cthulhu(ref cthulhu) => cthulhu.receive(),
         };
-    }
-
-    /// Sends a message to an ActorRef, the answer to this message will be put in the `Future` given
-    /// as return value.
-    pub fn ask<MessageTo: Message>(&self, message: MessageTo)
-        -> Future<Box<Any + Send>, &'static str> {
-        let (complete, future) = Future::<Box<Any + Send>, &'static str>::pair();
-        // This is done in order to avoid a trivial cast warning.
-        let message: Box<Any + Send> = Box::new(message);
-        self.receive(InnerMessage::Message(message), ActorRef::with_complete(complete));
-        future
     }
 }
 

@@ -4,11 +4,9 @@
 /// We chose to use it from the "outside" here, but it works as well inside an actor by calling
 /// `context.ask(target, message)`.
 
-extern crate eventual;
 extern crate rand;
 extern crate robots;
 
-use eventual::Async;
 use rand::Rng;
 
 use std::any::Any;
