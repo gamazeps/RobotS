@@ -111,6 +111,8 @@ pub trait ActorContext {
     /// Completes a Future.
     fn complete<MessageTo: Message>(&self, to: ActorRef, complete: MessageTo);
 
+    fn forward_result<T: Message>(&self, future: ActorRef, to: ActorRef);
+
     /// Requests the targeted actor to stop.
     fn stop(&self, actor_ref: ActorRef);
 
@@ -183,6 +185,16 @@ impl ActorContext for ActorCell {
 
     fn complete<MessageTo: Message>(&self, future: ActorRef, complete: MessageTo) {
         self.tell(future, FutureMessages::Complete(Arc::new(complete)));
+    }
+
+    fn forward_result<T: Message>(&self, future: ActorRef, to: ActorRef) {
+        self.tell(future, FutureMessages::Calculation(Arc::new(|value, context| {
+            // FIXME(gamazeps): error handling for cthulhu's sake !
+            if let Ok(value) = Box::<Any + Send>::downcast::<T>(value) {
+                context.tell(context.sender(), *value);
+            }
+            FutureState::Extracted
+        })));
     }
 
     fn sender(&self) -> ActorRef {

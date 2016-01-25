@@ -30,7 +30,7 @@ pub enum FutureMessages {
     ///
     /// Note that Done and Extracted might be a double of each other, I'll try to remove it
     /// afterwards.
-    Calculation(Arc<Fn(Box<Any>, ActorCell) -> FutureState + Send + Sync>),
+    Calculation(Arc<Fn(Box<Any + Send>, ActorCell) -> FutureState + Send + Sync>),
 }
 
 pub enum FutureState {
