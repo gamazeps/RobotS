@@ -77,7 +77,6 @@ impl Actor for Future {
                     }
                 },
                 FutureMessages::Calculation(func) => {
-                    // FIXME(gamazeps): check the state.
                     let mut state = self.state.lock().unwrap();
                     let s = state.take().unwrap();
                     match s {

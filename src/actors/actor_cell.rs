@@ -113,6 +113,9 @@ pub trait ActorContext {
 
     fn forward_result<T: Message>(&self, future: ActorRef, to: ActorRef);
 
+    fn do_computation<T: Message, F: Fn(Box<Any + Send>, ActorCell) -> T + Send + Sync + 'static>
+        (&self, future: ActorRef, closure: F);
+
     /// Requests the targeted actor to stop.
     fn stop(&self, actor_ref: ActorRef);
 
@@ -194,6 +197,17 @@ impl ActorContext for ActorCell {
                 context.tell(context.sender(), *value);
             }
             FutureState::Extracted
+        })));
+    }
+
+    // generic over T and F
+    // NOTE: not so sure about the 'static requirement, but it might be better than to ask the user
+    // to use an Arc.
+    fn do_computation<T: Message, F: Fn(Box<Any + Send>, ActorCell) -> T + Send + Sync + 'static>
+        (&self, future: ActorRef, closure: F) {
+        self.tell(future, FutureMessages::Calculation(Arc::new(move |value, context| {
+            let v = closure(value, context);
+            FutureState::Computing(Box::new(v))
         })));
     }
 
