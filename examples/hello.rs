@@ -5,6 +5,7 @@
 ///
 /// This shows how to stop actors, use the pre_start method and basic message sending.
 
+extern crate env_logger;
 extern crate robots;
 
 use std::any::Any;
@@ -63,12 +64,13 @@ impl Greeter {
 }
 
 fn main() {
+    env_logger::init().unwrap();
     let actor_system = ActorSystem::new("test".to_owned());
     actor_system.spawn_threads(1);
 
     let props = Props::new(Arc::new(HelloWorld::new), ());
     let _actor = actor_system.actor_of(props, "hello_world".to_owned());
 
-    std::thread::sleep(Duration::from_millis(10));
+    std::thread::sleep(Duration::from_millis(100));
     actor_system.shutdown();
 }

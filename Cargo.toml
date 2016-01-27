@@ -9,9 +9,12 @@ default = []
 dev = ["clippy"]
 
 [dependencies]
-#  Here we always want the last one, because there are many breaking changes.
+# Here we always want the last one, because there are many breaking changes.
 clippy = {version = "*", optional = true}
 rand = "0.3.0"
+# Logging
+log = "0.3"
+env_logger = "0.3"
 
 [lib]
 name = "robots"

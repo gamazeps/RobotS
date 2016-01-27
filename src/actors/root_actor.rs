@@ -10,9 +10,10 @@
 /// The father of these two actors is Cthulhu.
 
 use std::any::Any;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::sync::mpsc::Sender;
 
-use actors::{Actor, ActorCell, ActorContext};
+use actors::{Actor, ActorCell, ActorContext, ActorRef};
 use actors::props::ActorFactory;
 
 pub struct RootActor;
@@ -25,11 +26,11 @@ impl RootActor {
 
 impl Actor for RootActor {
     fn receive(&self, message: Box<Any>, context: ActorCell) {
-        if let Ok(message) = Box::<Any>::downcast::<(Arc<ActorFactory>, String)>(message) {
+        if let Ok(message) = Box::<Any>::downcast::<(Arc<ActorFactory>, String, Arc<Mutex<Sender<ActorRef>>>)>(message) {
             let tmp = *message;
-            let (props, name) = tmp;
+            let (props, name, tx) = tmp;
             let actor_ref = context.actor_of(props, name);
-            context.tell(context.sender(), actor_ref);
+            tx.lock().unwrap().send(actor_ref);
         }
     }
 }

@@ -2,10 +2,12 @@ use std::any::Any;
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
+use std::thread::*;
 
-use actors::{ActorPath, ActorRef, Props};
+use actors::{ActorPath, ActorRef, Message, Props};
 use actors::actor_cell::{ActorCell, SystemMessage};
 use actors::cthulhu::Cthulhu;
+use actors::future::Future;
 use actors::name_resolver::NameResolver;
 use actors::props::ActorFactory;
 use actors::root_actor::RootActor;
@@ -60,6 +62,7 @@ impl ActorSystem {
         let actor_system = ActorSystem { inner: Arc::new(InnerActorSystem::new(name)) };
         let cthulhu = Cthulhu::new(actor_system.clone());
         let cthulhu = ActorRef::with_cthulhu(cthulhu);
+        info!("Created cthulhu");
         *actor_system.inner.cthulhu.write().unwrap() = Some(cthulhu.clone());
         let user_actor_path = ActorPath::new_local("/user".to_owned());
         let user_actor_cell = ActorCell::new(Props::new(Arc::new(RootActor::new), ()),
@@ -68,6 +71,7 @@ impl ActorSystem {
                                                 user_actor_path.clone());
         let user_actor = ActorRef::with_cell(user_actor_cell, user_actor_path);
         user_actor.receive_system_message(SystemMessage::Start);
+        info!("Created /user actor");
         *actor_system.inner.user_actor.write().unwrap() = Some(user_actor);
         let system_actor_path = ActorPath::new_local("/system".to_owned());
         let system_actor_cell = ActorCell::new(Props::new(Arc::new(RootActor::new), ()),
@@ -76,9 +80,12 @@ impl ActorSystem {
                                                 system_actor_path.clone());
         let system_actor = ActorRef::with_cell(system_actor_cell, system_actor_path);
         system_actor.receive_system_message(SystemMessage::Start);
+        info!("Created /system actor");
         *actor_system.inner.system_actor.write().unwrap() = Some(system_actor);
         actor_system.spawn_threads(1);
+        info!("Launched the first thread");
         let name_resolver = actor_system.system_actor_of(Props::new(Arc::new(NameResolver::new), ()), "name_resolver".to_owned());
+        info!("Created the /system/name_resolver actor");
         *actor_system.inner.name_resolver.write().unwrap() = Some(name_resolver);
         actor_system
     }
@@ -170,6 +177,12 @@ impl ActorSystem {
             Some(resolver) => resolver.clone(),
         }
     }
+
+    pub fn ask<M: Message>(&self, to: ActorRef, message: M, name: String) -> ActorRef {
+        let future = self.actor_of(Props::new(Arc::new(Future::new), ()), name);
+        future.tell_to(to, message);
+        future
+    }
 }
 
 impl Clone for ActorSystem {
@@ -221,7 +234,11 @@ impl InnerActorSystem {
         // mutual exclusion, so we are in the clear.
         match self.user_actor.read().unwrap().clone() {
             Some(user_actor) => {
-                unimplemented!()
+                // NOTE: this creates a lot of things but this is not meant to be used outside of
+                // the initialisation of the system so this is fine by my book.
+                let (tx, rx) = channel();
+                self.cthulhu.read().unwrap().as_ref().unwrap().tell_to(user_actor, (props, name, Arc::new(Mutex::new(tx))));
+                rx.recv().unwrap()
             },
             None => panic!("The user actor is not initialised"),
         }
@@ -232,7 +249,13 @@ impl InnerActorSystem {
         // mutual exclusion, so we are in the clear.
         match self.system_actor.read().unwrap().clone() {
             Some(system_actor) => {
-                unimplemented!()
+                // NOTE: this creates a lot of things but this is not meant to be used outside of
+                // the initialisation of the system so this is fine by my book.
+                let (tx, rx) = channel();
+                info!("Created the channel to get an ActorRef from a root actor");
+                let cthulhu = self.cthulhu.read().unwrap();
+                cthulhu.as_ref().unwrap().tell_to(system_actor, (props, name, Arc::new(Mutex::new(tx))));
+                rx.recv().unwrap()
             },
             None => panic!("The user actor is not initialised"),
         }

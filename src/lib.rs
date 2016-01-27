@@ -12,6 +12,9 @@
         unused_qualifications)]
 
 //#![deny(warnings)]
+//
+#[macro_use]
+extern crate log;
 
 /// Actors core.
 pub mod actors;

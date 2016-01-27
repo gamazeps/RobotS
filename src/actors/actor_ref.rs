@@ -126,6 +126,7 @@ impl ActorRef {
     /// Receives a system message such as `Start`, `Restart` or a `Failure(ActorRef)`, puts it in
     /// the system mailbox and schedules the actor if needed.
     pub fn receive_system_message(&self, system_message: SystemMessage) {
+        info!("{} receiving a system message", self.path().logical_path());
         let inner = self.inner_actor.as_ref().expect("Tried to put a system message in the mailbox of a distant actor.");
         match *inner {
             InnerActor::Actor(ref actor) => actor.receive_system_message(system_message),
@@ -135,6 +136,7 @@ impl ActorRef {
 
     /// Receives a regular message and puts it in the mailbox and schedules the actor if needed.
     pub fn receive(&self, message: InnerMessage, sender: ActorRef) {
+        info!("{} receiving a message", self.path().logical_path());
         let inner = self.inner_actor.as_ref().expect("Tried to put a message in the mailbox of a distant actor.");
         match *inner {
             InnerActor::Actor(ref actor) => actor.receive_message(message, sender),
@@ -144,6 +146,7 @@ impl ActorRef {
 
     /// Handles a messages by calling the `receive` method of the underlying actor.
     pub fn handle(&self) {
+        info!("{} handling a message", self.path().logical_path());
         let inner = self.inner_actor.as_ref().expect("");
         match *inner {
             InnerActor::Actor(ref actor) => actor.handle_envelope(),
@@ -159,14 +162,9 @@ impl ActorRef {
     /// Makes this ActorRef send a message to anther ActorRef.
     pub fn tell_to<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) {
         let inner = self.inner_actor.as_ref().expect("");
-        match *inner {
-            InnerActor::Actor(_) => {
-                // This is done in order to avoid a trivial cast warning.
-                let message: Box<Any + Send> = Box::new(message);
-                to.receive(InnerMessage::Message(message), self.clone())
-            },
-            InnerActor::Cthulhu(ref cthulhu) => cthulhu.receive(),
-        };
+        info!("an actor is telling something to another");
+        let message: Box<Any + Send> = Box::new(message);
+        to.receive(InnerMessage::Message(message), self.clone())
     }
 }
 

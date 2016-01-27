@@ -68,7 +68,7 @@ impl ActorCell {
     /// Puts a message with its sender in the Actor's mailbox and schedules the Actor.
     pub fn receive_message(&self, message: InnerMessage, sender: ActorRef) {
         let inner = unwrap_inner!(self.inner_cell, {
-            println!("A message was send to a ref to a stopped actor");
+            warn!("A message was send to a ref to a stopped actor");
             return;
         });
         inner.receive_message(message, sender);
@@ -78,7 +78,7 @@ impl ActorCell {
     /// Puts a system message with its sender in the Actor's system mailbox and schedules the Actor.
     pub fn receive_system_message(&self, system_message: SystemMessage) {
         let inner = unwrap_inner!(self.inner_cell, {
-            println!("A message was send to a ref to a stopped actor");
+            warn!("A message was send to a ref to a stopped actor");
             return;
         });
         inner.receive_system_message(system_message);
@@ -88,7 +88,7 @@ impl ActorCell {
     /// Makes the Actor handle an envelope in its mailbox.
     pub fn handle_envelope(&self) {
         let inner = unwrap_inner!(self.inner_cell, {
-            println!("A message was send to a ref to a stopped actor");
+            warn!("A message was send to a ref to a stopped actor");
             return;
         });
         inner.handle_envelope(self.clone());
@@ -150,6 +150,7 @@ impl ActorContext for ActorCell {
             panic!("Tried to create an actor from the context of a no longer existing actor");
         });
         let path = self.path().child(name);
+        info!("creating actor {}", path.logical_path());
         let inner_cell = InnerActorCell::new(props,
                                              inner.system.clone(),
                                              self.actor_ref(),
@@ -514,7 +515,7 @@ impl Drop for InnerActorCell {
         // FIXME(gamazeps) Looking at the logs it seems as though fathers are killed before their
         // children, that is not the intended behaviour.
         let actor = self.actor.write().unwrap();
-        // println!("Actor {} is dropped", *self._name);
+        info!("Actor {} is dropped", *self.path.logical_path());
         actor.post_stop();
     }
 }

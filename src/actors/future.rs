@@ -4,17 +4,20 @@ use std::sync::{Arc, Mutex};
 
 use actors::{Actor, ActorCell, ActorContext, ActorPath, ActorRef, Message};
 
-macro_rules! complete {
-    ($future:expr, $complete:expr, $context:expr) => {
-        $context.tell($future, FutureMessages::Complete(Box::new($complete) as Box::<Any + Send>));
-    }
-}
-
-macro_rules! do_calculation {
-    ($future:expr, $calculation:expr, $context:expr) => {
-        $context.tell($future, FutureMessages::Complete(Box::new($complete) as Box::<Any + Send>));
-    }
-}
+//macro_rules! extract {
+//    ($future:expr, $type:ident, $context:expr) => {
+//        struct __Extractor$type;
+//
+//        // FIXME(gamazeps): the name may not be unique, how could we avoid that ?
+//        impl Actor for __Extractor$type{
+//            fn receive(&self, message: Box<Any>, context: ActorCell) {
+//                // NOTE: We may want to fail if the message is not correct.
+//                if let Ok(message) = Box::<Any>::downcast::<FutureMessages>(message) {
+//                }
+//            }
+//        }
+//    }
+//}
 
 
 #[derive(Clone)]

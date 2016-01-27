@@ -51,7 +51,7 @@ fn main() {
 
     // FIXME(gamazeps): eventual futures seem to be a bad idea, as we have to await with them.
     // And that kinda beats the whole point of having futures.
-    let future = answerer.ask(Exchanges::Request);
+    let future = actor_system.ask(answerer, Exchanges::Request, "request".to_owned());
     let result = future.await().unwrap();
     if let Ok(result) = Box::<Any>::downcast::<Exchanges>(result) {
         if let Exchanges::Answer(secret) = *result {
