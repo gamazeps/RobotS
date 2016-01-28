@@ -4,6 +4,7 @@
 /// We chose to use it from the "outside" here, but it works as well inside an actor by calling
 /// `context.ask(target, message)`.
 
+extern crate env_logger;
 extern crate rand;
 extern crate robots;
 
@@ -11,7 +12,6 @@ use rand::Rng;
 
 use std::any::Any;
 use std::sync::Arc;
-use std::time::Duration;
 
 use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props};
 
@@ -29,7 +29,7 @@ impl Actor for Answerer {
     fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<Exchanges>(message) {
             if *message == Exchanges::Request {
-                context.tell(context.sender(), Exchanges::Answer(self.secret));
+                context.complete(context.sender(), Exchanges::Answer(self.secret));
             }
         }
     }
@@ -42,6 +42,7 @@ impl Answerer {
 }
 
 fn main() {
+    env_logger::init().unwrap();
     let actor_system = ActorSystem::new("test".to_owned());
     println!("system started");
     actor_system.spawn_threads(1);
@@ -49,10 +50,13 @@ fn main() {
     let props = Props::new(Arc::new(Answerer::new), ());
     let answerer = actor_system.actor_of(props, "answerer".to_owned());
 
-    // FIXME(gamazeps): eventual futures seem to be a bad idea, as we have to await with them.
-    // And that kinda beats the whole point of having futures.
     let future = actor_system.ask(answerer, Exchanges::Request, "request".to_owned());
+    let x: Exchanges = actor_system.extract_result(future);
 
-    std::thread::sleep(Duration::from_millis(100));
+    match x {
+        Exchanges::Request => unreachable!(),
+        Exchanges::Answer(value) => println!("The secret value is {}", value),
+    }
+
     actor_system.shutdown();
 }

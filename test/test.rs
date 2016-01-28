@@ -1,3 +1,4 @@
+extern crate env_logger;
 extern crate robots;
 
 use std::any::Any;
@@ -30,7 +31,7 @@ impl Actor for InternalState {
         if let Ok(message) = Box::<Any>::downcast::<InternalStateMessage>(message) {
             match *message {
                 InternalStateMessage::Get => {
-                    context.tell(context.sender(), *self.last.lock().unwrap())
+                    context.complete(context.sender(), *self.last.lock().unwrap())
                 }
                 InternalStateMessage::Set(message) => {
                     // Here mixing the test actor for the two tests might seem a bit weird,
@@ -45,7 +46,9 @@ impl Actor for InternalState {
                         let _ = self.sender.lock().unwrap().send(Res::Ok);
                     }
                 }
-                InternalStateMessage::Panic => panic!(""),
+                InternalStateMessage::Panic => {
+                    panic!("The actor panicked as it was asked to.")
+                },
             }
         }
     }
@@ -95,13 +98,11 @@ fn recover_from_panic() {
 
     requester.tell_to(answerer.clone(), InternalStateMessage::Set(10));
     let res = actor_system.ask(answerer.clone(), InternalStateMessage::Get, "future_1".to_owned());
-    std::thread::sleep(Duration::from_millis(100));
     let res: u32 = actor_system.extract_result(res);
     assert_eq!(10u32, res);
 
     requester.tell_to(answerer.clone(), InternalStateMessage::Panic);
     let res = actor_system.ask(answerer, InternalStateMessage::Get, "future_2".to_owned());
-    std::thread::sleep(Duration::from_millis(100));
     let res: u32 = actor_system.extract_result(res);
     assert_eq!(0u32, res);
 
@@ -114,7 +115,7 @@ impl Actor for Resolver {
     fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<String>(message) {
             let future = context.identify_actor(*message);
-            context.forward_result::<Option<ActorRef>>(future, context.sender());
+            context.forward_result_to_future::<Option<ActorRef>>(future, context.sender());
         }
     }
 }
@@ -137,7 +138,7 @@ fn resolve_name_real_path() {
     std::thread::sleep(Duration::from_millis(100));
 
     let res = actor_system.ask(answerer, "/user/sender".to_owned(), "future".to_owned());
-    std::thread::sleep(Duration::from_millis(100));
+    println!("lol");
     let res: Option<ActorRef> = actor_system.extract_result(res);
     assert_eq!(requester.path(), res.unwrap().path());
 
@@ -195,7 +196,6 @@ impl DoubleAnswer {
 
 #[test]
 fn ask_answer_twice() {
-    unimplemented!()
 }
 
 // This actor simply answers twice with () when send a message.

@@ -162,7 +162,7 @@ impl ActorRef {
     /// Makes this ActorRef send a message to anther ActorRef.
     pub fn tell_to<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) {
         let inner = self.inner_actor.as_ref().expect("");
-        info!("an actor is telling something to another");
+        info!("{} is sending a message to {}", self.path().logical_path(), to.path().logical_path());
         let message: Box<Any + Send> = Box::new(message);
         to.receive(InnerMessage::Message(message), self.clone())
     }

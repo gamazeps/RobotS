@@ -9,7 +9,7 @@ use std::mem;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
 use actors::{Actor, ActorPath, ActorRef, ActorSystem, Message, Props};
-use actors::future::{Future, FutureMessages, FutureState};
+use actors::future::{Computation, Complete, Future, FutureState};
 use actors::name_resolver::ResolveRequest;
 use actors::props::ActorFactory;
 
@@ -113,6 +113,8 @@ pub trait ActorContext {
 
     fn forward_result<T: Message>(&self, future: ActorRef, to: ActorRef);
 
+    fn forward_result_to_future<T: Message>(&self, future: ActorRef, to: ActorRef);
+
     fn do_computation<T: Message, F: Fn(Box<Any + Send>, ActorCell) -> T + Send + Sync + 'static>
         (&self, future: ActorRef, closure: F);
 
@@ -170,6 +172,7 @@ impl ActorContext for ActorCell {
     }
 
     fn tell<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) {
+        // FIXME(gamazeps): code duplication.
         let path = to.path();
         match *path {
             ActorPath::Local(_) => to.receive(InnerMessage::Message(Box::new(message)), self.actor_ref()),
@@ -188,14 +191,34 @@ impl ActorContext for ActorCell {
     }
 
     fn complete<MessageTo: Message>(&self, future: ActorRef, complete: MessageTo) {
-        self.tell(future, FutureMessages::Complete(Arc::new(complete)));
+        // FIXME(gamazeps): code duplication.
+        // This is a copy of the code in tell, but we need to do that in order to put a Box<Any> in
+        // the mailbox.
+        let path = future.path();
+        match *path {
+            ActorPath::Local(_) => future.receive(InnerMessage::Message(Box::new(Complete::new(Box::new(complete)))), self.actor_ref()),
+            ActorPath::Distant(ref path) => {
+                println!("Sent a message of size {} to distant actor {}:{}", mem::size_of::<MessageTo>(),
+                path.distant_logical_path(), path.addr_port());
+            },
+        }
     }
 
-    fn forward_result<T: Message>(&self, future: ActorRef, to: ActorRef) {
-        self.tell(future, FutureMessages::Calculation(Arc::new(|value, context| {
+    fn forward_result<T: Message>(&self, future: ActorRef, actor: ActorRef) {
+        self.tell(future, Computation::Forward(actor, Arc::new(move |value, context, to| {
             // FIXME(gamazeps): error handling for cthulhu's sake !
             if let Ok(value) = Box::<Any + Send>::downcast::<T>(value) {
-                context.tell(context.sender(), *value);
+                context.tell(to, *value);
+            }
+            FutureState::Extracted
+        })));
+    }
+
+    fn forward_result_to_future<T: Message>(&self, future: ActorRef, actor: ActorRef) {
+        self.tell(future, Computation::Forward(actor, Arc::new(move |value, context, to| {
+            // FIXME(gamazeps): error handling for cthulhu's sake !
+            if let Ok(value) = Box::<Any + Send>::downcast::<T>(value) {
+                context.complete(to, *value);
             }
             FutureState::Extracted
         })));
@@ -206,7 +229,7 @@ impl ActorContext for ActorCell {
     // to use an Arc.
     fn do_computation<T: Message, F: Fn(Box<Any + Send>, ActorCell) -> T + Send + Sync + 'static>
         (&self, future: ActorRef, closure: F) {
-        self.tell(future, FutureMessages::Calculation(Arc::new(move |value, context| {
+        self.tell(future, Computation::Computation(Arc::new(move |value, context| {
             let v = closure(value, context);
             FutureState::Computing(Box::new(v))
         })));

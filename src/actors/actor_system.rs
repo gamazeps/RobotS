@@ -265,7 +265,7 @@ impl InnerActorSystem {
                 cthulhu.as_ref().unwrap().tell_to(system_actor, (props, name, Arc::new(Mutex::new(tx))));
                 rx.recv().unwrap()
             },
-            None => panic!("The user actor is not initialised"),
+            None => panic!("The system actor is not initialised"),
         }
     }
 
