@@ -85,7 +85,6 @@ fn read_messages_in_order() {
 #[test]
 fn recover_from_panic() {
     let actor_system = ActorSystem::new("test".to_owned());
-    actor_system.spawn_threads(1);
 
     let (tx, _rx) = channel();
     let tx = Arc::new(Mutex::new(tx));
@@ -95,14 +94,16 @@ fn recover_from_panic() {
     let answerer = actor_system.actor_of(props.clone(), "receiver".to_owned());
 
     requester.tell_to(answerer.clone(), InternalStateMessage::Set(10));
-    let res = answerer.ask(InternalStateMessage::Get).await().unwrap();
-    let res = Box::<Any>::downcast::<u32>(res).unwrap();
-    assert_eq!(10u32, *res);
+    let res = actor_system.ask(answerer.clone(), InternalStateMessage::Get, "future_1".to_owned());
+    std::thread::sleep(Duration::from_millis(100));
+    let res: u32 = actor_system.extract_result(res);
+    assert_eq!(10u32, res);
 
     requester.tell_to(answerer.clone(), InternalStateMessage::Panic);
-    let res = answerer.ask(InternalStateMessage::Get).await().unwrap();
-    let res = Box::<Any>::downcast::<u32>(res).unwrap();
-    assert_eq!(0u32, *res);
+    let res = actor_system.ask(answerer, InternalStateMessage::Get, "future_2".to_owned());
+    std::thread::sleep(Duration::from_millis(100));
+    let res: u32 = actor_system.extract_result(res);
+    assert_eq!(0u32, res);
 
     actor_system.shutdown();
 }
@@ -112,10 +113,8 @@ struct Resolver;
 impl Actor for Resolver {
     fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<String>(message) {
-            let res = context.identify_actor(*message)
-                             .await()
-                             .unwrap();
-            context.tell(context.sender(), res);
+            let future = context.identify_actor(*message);
+            context.forward_result::<Option<ActorRef>>(future, context.sender());
         }
     }
 }
@@ -129,7 +128,6 @@ impl Resolver {
 #[test]
 fn resolve_name_real_path() {
     let actor_system = ActorSystem::new("test".to_owned());
-    actor_system.spawn_threads(2);
 
     let props = Props::new(Arc::new(Resolver::new), ());
     let answerer = actor_system.actor_of(props.clone(), "answerer".to_owned());
@@ -138,9 +136,10 @@ fn resolve_name_real_path() {
     // We wait to be sure that the actors will be registered to the name resolver.
     std::thread::sleep(Duration::from_millis(100));
 
-    let res = answerer.ask("/user/sender".to_owned()).await().unwrap();
-    let res = Box::<Any>::downcast::<Option<ActorRef>>(res).unwrap();
-    assert_eq!(requester.path(), (*res).unwrap().path());
+    let res = actor_system.ask(answerer, "/user/sender".to_owned(), "future".to_owned());
+    std::thread::sleep(Duration::from_millis(100));
+    let res: Option<ActorRef> = actor_system.extract_result(res);
+    assert_eq!(requester.path(), res.unwrap().path());
 
     actor_system.shutdown();
 }
@@ -148,7 +147,6 @@ fn resolve_name_real_path() {
 #[test]
 fn resolve_name_fake_path() {
     let actor_system = ActorSystem::new("test".to_owned());
-    actor_system.spawn_threads(2);
 
     let props = Props::new(Arc::new(Resolver::new), ());
     let answerer = actor_system.actor_of(props.clone(), "answerer".to_owned());
@@ -156,8 +154,9 @@ fn resolve_name_fake_path() {
     // We wait to be sure that the actors will be registered to the name resolver.
     std::thread::sleep(Duration::from_millis(100));
 
-    let res = answerer.ask("/foo/bar".to_owned()).await().unwrap();
-    let res = *Box::<Any>::downcast::<Option<ActorRef>>(res).unwrap();
+    let res = actor_system.ask(answerer, "/foo/bar".to_owned(), "future".to_owned());
+    std::thread::sleep(Duration::from_millis(100));
+    let res: Option<ActorRef> = actor_system.extract_result(res);
 
     match res {
         None => {}
@@ -196,26 +195,7 @@ impl DoubleAnswer {
 
 #[test]
 fn ask_answer_twice() {
-    let actor_system = ActorSystem::new("test".to_owned());
-
-    let (tx, rx) = channel();
-    let tx = Arc::new(Mutex::new(tx));
-
-    let props = Props::new(Arc::new(DoubleAnswer::new), tx);
-    let answerer = actor_system.actor_of(props.clone(), "answerer".to_owned());
-
-    let res = answerer.ask(()).await().unwrap();
-    let res = *Box::<Any>::downcast::<()>(res).unwrap();
-    // We chack that the value contained in the future is the correct one.
-    assert_eq!(res, ());
-
-    // We check that the actor has been restarted because of a panic (reason is not caught yet).
-    let res = rx.recv();
-    assert_eq!(res, Ok(()));
-
-    std::thread::sleep(Duration::from_millis(10));
-
-    actor_system.shutdown();
+    unimplemented!()
 }
 
 // This actor simply answers twice with () when send a message.

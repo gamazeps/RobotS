@@ -52,12 +52,6 @@ fn main() {
     // FIXME(gamazeps): eventual futures seem to be a bad idea, as we have to await with them.
     // And that kinda beats the whole point of having futures.
     let future = actor_system.ask(answerer, Exchanges::Request, "request".to_owned());
-    let result = future.await().unwrap();
-    if let Ok(result) = Box::<Any>::downcast::<Exchanges>(result) {
-        if let Exchanges::Answer(secret) = *result {
-            println!("{}", secret)
-        }
-    }
 
     std::thread::sleep(Duration::from_millis(100));
     actor_system.shutdown();

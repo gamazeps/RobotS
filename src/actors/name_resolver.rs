@@ -44,7 +44,7 @@ impl Actor for NameResolver {
                 }
                 ResolveRequest::Get(address) => {
                     let index = self.index.lock().unwrap();
-                    context.tell(context.sender(), index.get(&ActorPath::new_local(address)).cloned());
+                    context.complete(context.sender(), index.get(&ActorPath::new_local(address)).cloned());
                 }
             }
         }

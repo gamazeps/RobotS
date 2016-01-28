@@ -1,23 +1,9 @@
 use std::any::Any;
 use std::mem;
 use std::sync::{Arc, Mutex};
+use std::sync::mpsc::Sender;
 
 use actors::{Actor, ActorCell, ActorContext, ActorPath, ActorRef, Message};
-
-//macro_rules! extract {
-//    ($future:expr, $type:ident, $context:expr) => {
-//        struct __Extractor$type;
-//
-//        // FIXME(gamazeps): the name may not be unique, how could we avoid that ?
-//        impl Actor for __Extractor$type{
-//            fn receive(&self, message: Box<Any>, context: ActorCell) {
-//                // NOTE: We may want to fail if the message is not correct.
-//                if let Ok(message) = Box::<Any>::downcast::<FutureMessages>(message) {
-//                }
-//            }
-//        }
-//    }
-//}
 
 
 #[derive(Clone)]
@@ -101,12 +87,43 @@ impl Actor for Future {
                                 },
                             }
                         },
-                        FutureState::Uncompleted => panic!("A closure was called on an uncompleted Future."),
+                        FutureState::Uncompleted => panic!("A closure was called on an uncompleted Future {}.",
+                                                           *context.actor_ref().path().logical_path()),
                         FutureState::Terminated => panic!("A closure was called on a Terminated Future."),
                         FutureState::Extracted => panic!("A closure was called on an extracted Future."),
                     }
                 },
             }
+        }
+    }
+}
+
+pub struct FutureExtractor<T: Message> {
+    future: ActorRef,
+    channel: Arc<Mutex<Sender<T>>>,
+}
+
+impl<T: Message> FutureExtractor<T> {
+    pub fn new(args: (ActorRef, Arc<Mutex<Sender<T>>>)) -> FutureExtractor<T> {
+        FutureExtractor {
+            future: args.0,
+            channel: args.1,
+        }
+    }
+}
+
+impl<T: Message> Actor for FutureExtractor<T> {
+    // Here when the extractor is created it tells the future to forward it its result.
+    fn pre_start(&self, context: ActorCell) {
+        context.forward_result::<T>(self.future.clone(), context.actor_ref());
+    }
+
+    // It then receives the result and will send it through its channel.
+    fn receive(&self, message: Box<Any>, context: ActorCell) {
+        if let Ok(message) = Box::<Any>::downcast::<T>(message) {
+            self.channel.lock().unwrap().send(*message);
+            // Once we have sent the message through the channel, we want this actor to be dropped.
+            context.kill_me();
         }
     }
 }

@@ -7,7 +7,7 @@ use std::thread::*;
 use actors::{ActorPath, ActorRef, Message, Props};
 use actors::actor_cell::{ActorCell, SystemMessage};
 use actors::cthulhu::Cthulhu;
-use actors::future::Future;
+use actors::future::{Future, FutureExtractor};
 use actors::name_resolver::NameResolver;
 use actors::props::ActorFactory;
 use actors::root_actor::RootActor;
@@ -182,6 +182,14 @@ impl ActorSystem {
         let future = self.actor_of(Props::new(Arc::new(Future::new), ()), name);
         future.tell_to(to, message);
         future
+    }
+
+    pub fn extract_result<M: Message>(&self, future: ActorRef) -> M {
+        // NOTE: this creates a lot of things but this is not meant to be used outside of
+        // tests or examples so this is fine by my book.
+        let (tx, rx) = channel();
+        let extractor = self.actor_of(Props::new(Arc::new(FutureExtractor::new), (future, Arc::new(Mutex::new(tx)))), "extractor".to_owned());
+        rx.recv().unwrap()
     }
 }
 
