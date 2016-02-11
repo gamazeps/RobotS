@@ -30,7 +30,8 @@ impl Actor for RootActor {
             let tmp = *message;
             let (props, name, tx) = tmp;
             let actor_ref = context.actor_of(props, name);
-            tx.lock().unwrap().send(actor_ref);
+            // FIXME(gamazeps): error handling.
+            let _res = tx.lock().unwrap().send(actor_ref);
         }
     }
 }

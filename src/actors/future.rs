@@ -1,10 +1,9 @@
 use std::any::Any;
 use std::collections::VecDeque;
-use std::mem;
 use std::sync::{Arc, Mutex};
 use std::sync::mpsc::Sender;
 
-use actors::{Actor, ActorCell, ActorContext, ActorPath, ActorRef, Message};
+use actors::{Actor, ActorCell, ActorContext, ActorRef, Message};
 
 
 pub struct Complete {
@@ -29,7 +28,6 @@ pub enum Computation {
 pub enum FutureState {
     Uncompleted,
     Computing(Box<Any + Send>),
-    Terminated,
     Extracted,
 }
 
@@ -63,7 +61,6 @@ impl Future {
                 }
                 match *state {
                     Some(FutureState::Computing(_)) => {},
-                    Some(FutureState::Terminated) => context.kill_me(),
                     Some(FutureState::Extracted) => context.kill_me(),
                     Some(FutureState::Uncompleted) => panic!("A future closure returned Uncompleted, this should not happen"),
                     None => unreachable!(),
@@ -75,10 +72,6 @@ impl Future {
                 info!("{} is keeping the computation for later", context.actor_ref().path().logical_path());
                 self.scheduled_calculations.lock().unwrap().push_back(computation);
             },
-            FutureState::Terminated => {
-                *state = Some(s);
-                panic!("A closure was called on a Terminated Future.");
-            },
             FutureState::Extracted => {
                 *state = Some(s);
                 panic!("A closure was called on an Extracted Future.");
@@ -89,7 +82,6 @@ impl Future {
 
 impl Actor for Future {
     fn receive(&self, message: Box<Any>, context: ActorCell) {
-        // NOTE: We may want to fail if the message is not correct.
         match Box::<Any>::downcast::<Computation>(message) {
             Ok(computation) => {
                 self.handle_computation(*computation, context);
@@ -154,7 +146,8 @@ impl<T: Message> Actor for FutureExtractor<T> {
     fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<T>(message) {
             info!("The extractor {} received the type it wants to extract", context.actor_ref().path().logical_path());
-            self.channel.lock().unwrap().send(*message);
+            // FIXME(gamazeps): error handling.
+            let _res = self.channel.lock().unwrap().send(*message);
             // Once we have sent the message through the channel, we want this actor to be dropped.
             context.kill_me();
         }

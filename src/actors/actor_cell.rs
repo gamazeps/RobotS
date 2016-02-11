@@ -106,15 +106,24 @@ pub trait ActorContext {
     /// Sends a Message to the targeted ActorRef.
     fn tell<MessageTo: Message>(&self, to: ActorRef, message: MessageTo);
 
-    fn ask<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) -> ActorRef;
+    /// Creates a Future, this Future will send the message to the targetted ActorRef (and thus be
+    /// the sender of the message).
+    fn ask<MessageTo: Message>(&self, to: ActorRef, message: MessageTo, future_name: String) -> ActorRef;
 
     /// Completes a Future.
     fn complete<MessageTo: Message>(&self, to: ActorRef, complete: MessageTo);
 
+    /// Tells a future to forward its result to another Actor.
+    /// The Future is then dropped.
     fn forward_result<T: Message>(&self, future: ActorRef, to: ActorRef);
 
+    /// Tells a future to forward its result to another Future that will be completed with this
+    /// result.
+    /// The Future is then dropped.
     fn forward_result_to_future<T: Message>(&self, future: ActorRef, to: ActorRef);
 
+    /// Sends the Future a closure to apply on its value, the value will be updated with the output
+    /// of the closure.
     fn do_computation<T: Message, F: Fn(Box<Any + Send>, ActorCell) -> T + Send + Sync + 'static>
         (&self, future: ActorRef, closure: F);
 
@@ -139,7 +148,11 @@ pub trait ActorContext {
     /// Logical path to the actor, such as `/user/foo/bar/baz`
     fn path(&self) -> Arc<ActorPath>;
 
-    fn identify_actor(&self, name: String) -> ActorRef;
+    /// Future containing an Option<ActorRef> with an ActtorRef to the Actor with the given logical
+    /// path.
+    ///
+    /// The future will have the path: `$actor/$name_request`
+    fn identify_actor(&self, logical_path: String, request_name: String) -> ActorRef;
 }
 
 impl ActorContext for ActorCell {
@@ -172,7 +185,7 @@ impl ActorContext for ActorCell {
     }
 
     fn tell<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) {
-        // FIXME(gamazeps): code duplication.
+        // FIXME(gamazeps): Code duplication.
         let path = to.path();
         match *path {
             ActorPath::Local(_) => to.receive(InnerMessage::Message(Box::new(message)), self.actor_ref()),
@@ -183,15 +196,14 @@ impl ActorContext for ActorCell {
         }
     }
 
-    fn ask<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) -> ActorRef {
-        // FIXME(gamazeps) fix the naming.
-        let future = self.actor_of(Props::new(Arc::new(Future::new), ()), "lol".to_owned());
+    fn ask<MessageTo: Message>(&self, to: ActorRef, message: MessageTo, name: String) -> ActorRef {
+        let future = self.actor_of(Props::new(Arc::new(Future::new), ()), name);
         future.tell_to(to, message);
         future
     }
 
     fn complete<MessageTo: Message>(&self, future: ActorRef, complete: MessageTo) {
-        // FIXME(gamazeps): code duplication.
+        // FIXME(gamazeps): Code duplication.
         // This is a copy of the code in tell, but we need to do that in order to put a Box<Any> in
         // the mailbox.
         let path = future.path();
@@ -224,9 +236,6 @@ impl ActorContext for ActorCell {
         })));
     }
 
-    // generic over T and F
-    // NOTE: not so sure about the 'static requirement, but it might be better than to ask the user
-    // to use an Arc.
     fn do_computation<T: Message, F: Fn(Box<Any + Send>, ActorCell) -> T + Send + Sync + 'static>
         (&self, future: ActorRef, closure: F) {
         self.tell(future, Computation::Computation(Arc::new(move |value, context| {
@@ -288,12 +297,12 @@ impl ActorContext for ActorCell {
         inner.path.clone()
     }
 
-    fn identify_actor(&self, name: String) -> ActorRef {
+    fn identify_actor(&self, name: String, request_name: String) -> ActorRef {
         let inner = unwrap_inner!(self.inner_cell, {
             panic!("Tried to get the actor system of a no longer existing actor while resolving \
                     a path. This should *never* happen");
         });
-        self.ask(inner.system.name_resolver(), ResolveRequest::Get(name))
+        self.ask(inner.system.name_resolver(), ResolveRequest::Get(name), request_name)
     }
 }
 
@@ -339,9 +348,6 @@ impl Drop for Failsafe {
     fn drop(&mut self) {
         if self.active {
             *self.state.write().unwrap() = ActorState::Failed;
-            // NOTE: This kinda breaks encapsulation.
-            // But we consider this ok because for now an actor can only spawn children locally; if
-            // you want to spawn actors remotely, ask a remote actor to spawn them.
             self.father.receive_system_message(SystemMessage::Failure(self.child.clone()));
         }
     }

@@ -3,7 +3,8 @@
 [![Build Status](https://travis-ci.org/gamazeps/RobotS.svg?branch=travis__test)](https://travis-ci.org/gamazeps/RobotS)
 [![Coverage Status](https://coveralls.io/repos/gamazeps/RobotS/badge.svg?branch=master&service=github)](https://coveralls.io/github/gamazeps/RobotS?branch=master)
 
-Robots is a pure rust actor system library, it is meant to be a close implementation of [akka](http://akka.io).
+Robots is a pure rust actor system library, it takes a strong inspiration from [erlang](https://www.erlang.org/) and
+[akka](http://akka.io).
 
 Documentation can be found [here](http://gamazeps.github.io/RobotS/).
 
@@ -113,6 +114,9 @@ impl Actor for Printer {
 
 As you can see this is rather easy.
 
+If you think that using Box&lt;Any> is very bad and that someone should do terrible things to me, check
+[this post](http://gamazeps.github.io/why-boxany.html) before :)
+
 ### ActorContext methods
 
 Now let's see how to use the context argument.
@@ -120,42 +124,62 @@ Now let's see how to use the context argument.
 This gives most of the communication methods and features expected of an actor:
 
 ```rust
-    /// Returns an ActorRef of the Actor.
-    fn actor_ref(&self) -> ActorRef;
+/// Returns an ActorRef to the Actor.
+fn actor_ref(&self) -> ActorRef;
 
-    /// Spawns a child actor.
-    fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> ActorRef;
+/// Spawns a child actor.
+fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> ActorRef;
 
-    /// Sends a Message to the targeted ActorRef.
-    fn tell<MessageTo: Message>(&self, to: ActorRef, message: MessageTo);
+/// Sends a Message to the targeted ActorRef.
+fn tell<MessageTo: Message>(&self, to: ActorRef, message: MessageTo);
 
-    /// Requests the targeted actor to stop.
-    fn stop(&self, actor_ref: Arc<CanReceive>);
+/// Creates a Future, this Future will send the message to the targetted ActorRef (and thus be
+/// the sender of the message).
+fn ask<MessageTo: Message>(&self, to: ActorRef, message: MessageTo, future_name: String) -> ActorRef;
 
-    /// Asks the father to kill the actor.
-    fn kill_me(&self);
+/// Completes a Future.
+fn complete<MessageTo: Message>(&self, to: ActorRef, complete: MessageTo);
 
-    /// Sender of the message being handled.
-    fn sender(&self) -> ActorRef;
+/// Tells a future to forward its result to another Actor.
+/// The Future is then dropped.
+fn forward_result<T: Message>(&self, future: ActorRef, to: ActorRef);
 
-    /// Father of the actor.
-    fn father(&self) -> ActorRef;
+/// Tells a future to forward its result to another Future that will be completed with this
+/// result.
+/// The Future is then dropped.
+fn forward_result_to_future<T: Message>(&self, future: ActorRef, to: ActorRef);
 
-    /// Children of the actor.
-    fn children(&self) -> Vec<Arc<CanReceive>>;
+/// Sends the Future a closure to apply on its value, the value will be updated with the output
+/// of the closure.
+fn do_computation<T: Message, F: Fn(Box<Any + Send>, ActorCell) -> T + Send + Sync + 'static>
+    (&self, future: ActorRef, closure: F);
 
-    /// Lifecycle monitoring, list of monitored actors.
-    fn monitoring(&self) -> Vec<ActorRef>;
+/// Requests the targeted actor to stop.
+fn stop(&self, actor_ref: ActorRef);
 
-    /// Logical path to the actor, such as `/user/foo/bar/baz`.
-    fn path(&self) -> Arc<ActorPath>;
+/// Asks the father of the actor to terminate it.
+fn kill_me(&self);
 
-    /// Tries to give an address from an actor path.
-    /// Note that eventual futures are lazy, thus you need to await on the future at dome point,
-    /// this makes this a synchronous call.
-    ///
-    /// This should be fixed in a new version.
-    fn identify_actor(&self, _name: String) -> Future<Option<ActorRef>>, &'static str>;
+/// Returns an Arc to the sender of the message being handled.
+fn sender(&self) -> ActorRef;
+
+/// Father of the actor.
+fn father(&self) -> ActorRef;
+
+/// Children of the actor.
+fn children(&self) -> Vec<ActorRef>;
+
+/// Lifecycle monitoring, list of monitored actors.
+fn monitoring(&self) -> Vec<ActorRef>;
+
+/// Logical path to the actor, such as `/user/foo/bar/baz`
+fn path(&self) -> Arc<ActorPath>;
+
+/// Future containing an Option<ActorRef> with an ActtorRef to the Actor with the given logical
+/// path.
+///
+/// The future will have the path: `$actor/$name_request`
+fn identify_actor(&self, logical_path: String, request_name: String) -> ActorRef;
 ```
 
 ## Contributing
@@ -166,15 +190,12 @@ All contribution are welcome, if you have a feature request don't hesitate to op
 
   * Actor communication in a local context.
   * Actor supervision with an actor hierarchy (each actor supervises its children).
-  * Ask pattern -- Note: this is currently made synchronously, should become asynchronous in the
-    coming weeks.
+  * Ask pattern using Futures for asynchronous requests.
   * Name resolving (obtaining an ActorRef from a logical path).
 
 ## TODO
 
   * Network communication in a transparent manner.
-  * Improve the use of Futures to be able to use them asynchronously with actor (it's a bit
-    pointless otherwise).
   * Investigate the performances to shave some microseconds.
   * Your crazy ideas ?
 

@@ -44,13 +44,12 @@ impl<T> Arguments for T where T: Clone + Send + Sync + 'static
 /// This is the trait to implement to become an Actor.
 ///
 /// Normaly only the receive method has to be implemented.
-// NOTE: Not sure about the 'static
 pub trait Actor: Send + Sync + 'static {
 
     /// Single method to be implemented for an Actor.
     ///
     /// This defines the Actor's behaviour.
-    // NOTE: we have a Box<Any> in the API even though that is a Box<Message> in reality, this is
+    // We have a Box<Any> in the API even though that is a Box<Message> in reality, this is
     // done in order to have nicer code for the downcasts (indeed, I can't implement downcast
     // methods for Box<Message>).
     // Checks for sending data with the Message trait is done in the sending phase.
@@ -59,12 +58,12 @@ pub trait Actor: Send + Sync + 'static {
     /// Method called when a monitored actor is terminated.
     ///
     /// This is put in a separated method because match in rust must check all variations and we
-    /// chose not to force the user to make a case for terminations if it doesn not monitor any
+    /// chose not to force the user to make a case for terminations if it does not monitor any
     /// actor.
     // NOTE: this currently panic! because termination notices are not sent in the current
     // implementation.
     fn receive_termination(&self, _context: ActorCell) {
-        panic!("Not implemented");
+        unimplemented!();
     }
 
     /// Method called before the Actor is started.
