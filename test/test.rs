@@ -14,6 +14,8 @@ enum Res {
     Err,
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 #[derive(Copy, Clone)]
 enum InternalStateMessage {
     Set(u32),
@@ -109,12 +111,14 @@ fn recover_from_panic() {
     actor_system.shutdown();
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 struct Resolver;
 
 impl Actor for Resolver {
     fn receive(&self, message: Box<Any>, context: ActorCell) {
         if let Ok(message) = Box::<Any>::downcast::<String>(message) {
-            let future = context.identify_actor(*message);
+            let future = context.identify_actor(*message, "resolver_request".to_owned());
             context.forward_result_to_future::<Option<ActorRef>>(future, context.sender());
         }
     }
@@ -167,35 +171,89 @@ fn resolve_name_fake_path() {
     actor_system.shutdown();
 }
 
-// This actor simply answers twice with () when send a message.
-// He also sends () through a channel when restarted.
-struct DoubleAnswer {
-    sender: Arc<Mutex<Sender<()>>>,
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct SimpleActor1 {
+    sender: Arc<Mutex<Sender<Res>>>,
 }
 
-impl Actor for DoubleAnswer {
-    fn post_restart(&self, _context: ActorCell) {
-        let sender = self.sender.lock().unwrap();
-        let _res = sender.send(());
-    }
-
-    fn receive(&self, _message: Box<Any>, context: ActorCell) {
-        context.tell(context.sender(), ());
-        context.tell(context.sender(), ());
+impl Actor for SimpleActor1 {
+    fn receive(&self, _message: Box<Any>, _context: ActorCell) {
+        let _ = self.sender.lock().unwrap().send(Res::Ok);
     }
 }
 
-impl DoubleAnswer {
-    fn new(sender: Arc<Mutex<Sender<()>>>) -> DoubleAnswer {
-        DoubleAnswer {
-            sender: sender
+impl SimpleActor1 {
+    fn new(sender: Arc<Mutex<Sender<Res>>>) -> SimpleActor1 {
+        SimpleActor1 {
+            sender: sender,
         }
     }
 }
 
+#[test]
+fn receive_message () {
+    let actor_system = ActorSystem::new("test".to_owned());
+
+    let (tx, rx) = channel();
+    let tx = Arc::new(Mutex::new(tx));
+
+    let props = Props::new(Arc::new(SimpleActor1::new), tx);
+    let actor_ref = actor_system.actor_of(props.clone(), "actor".to_owned());
+
+    actor_system.tell(actor_ref, ());
+
+    let res = rx.recv();
+    assert_eq!(Ok(Res::Ok), res);
+
+    actor_system.shutdown();
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct SimpleActor2 {
+    sender: Arc<Mutex<Sender<Res>>>,
+    state: i32,
+}
+
+impl Actor for SimpleActor2 {
+    fn receive(&self, message: Box<Any>, _context: ActorCell) {
+        if let Ok(message) = Box::<Any>::downcast::<i32>(message) {
+            if *message == self.state {
+                let _ = self.sender.lock().unwrap().send(Res::Ok);
+            } else {
+                let _ = self.sender.lock().unwrap().send(Res::Err);
+            }
+        }
+    }
+}
+
+impl SimpleActor2 {
+    fn new(args: (Arc<Mutex<Sender<Res>>>, i32)) -> SimpleActor2 {
+        SimpleActor2 {
+            sender: args.0,
+            state: args.1,
+        }
+    }
+}
 
 #[test]
-fn ask_answer_twice() {
+fn receive_correct_message () {
+    let actor_system = ActorSystem::new("test".to_owned());
+
+    let (tx, rx) = channel();
+    let tx = Arc::new(Mutex::new(tx));
+    let value = 42;
+
+    let props = Props::new(Arc::new(SimpleActor2::new), (tx, value));
+    let actor_ref = actor_system.actor_of(props.clone(), "actor".to_owned());
+
+    actor_system.tell(actor_ref, value);
+
+    let res = rx.recv();
+    assert_eq!(Ok(Res::Ok), res);
+
+    actor_system.shutdown();
 }
 
 // This actor simply answers twice with () when send a message.

@@ -1,8 +1,6 @@
-use std::any::Any;
 use std::sync::{Arc, Mutex, RwLock};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
 use std::thread;
-use std::thread::*;
 
 use actors::{ActorPath, ActorRef, Message, Props};
 use actors::actor_cell::{ActorCell, SystemMessage};
@@ -178,17 +176,37 @@ impl ActorSystem {
         }
     }
 
+    /// Sends a message to the given actor.
+    ///
+    /// The sender of the message is the user_actor, thus this expects that no answer will be
+    /// given.
+    pub fn tell<M: Message>(&self, to: ActorRef, message: M) {
+        match self.inner.user_actor.read().unwrap().as_ref() {
+            Some(user_actor) => user_actor.tell_to(to, message),
+            None => unreachable!(),
+        }
+    }
+
+    /// Creates a Future that will send the message to the targetted actor.
+    ///
+    /// The father of this Future is the user_actor.
     pub fn ask<M: Message>(&self, to: ActorRef, message: M, name: String) -> ActorRef {
         let future = self.actor_of(Props::new(Arc::new(Future::new), ()), name);
         future.tell_to(to, message);
         future
     }
 
+    /// Extracts the result from a Future.
+    ///
+    /// This is not supposed to be used a lot as this is a synchronous call (if an actor wants to
+    /// get the result of a fututure it should use forward_result instead).
+    ///
+    /// The extraction creates an Extractor actor whose father is the user_actor.
     pub fn extract_result<M: Message>(&self, future: ActorRef) -> M {
         // NOTE: this creates a lot of things but this is not meant to be used outside of
         // tests or examples so this is fine by my book.
         let (tx, rx) = channel();
-        let extractor = self.actor_of(Props::new(Arc::new(FutureExtractor::new), (future, Arc::new(Mutex::new(tx)))), "extractor".to_owned());
+        let _extractor = self.actor_of(Props::new(Arc::new(FutureExtractor::new), (future, Arc::new(Mutex::new(tx)))), "extractor".to_owned());
         rx.recv().unwrap()
     }
 }
