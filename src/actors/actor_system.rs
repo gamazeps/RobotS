@@ -262,9 +262,10 @@ impl InnerActorSystem {
             Some(user_actor) => {
                 // NOTE: this creates a lot of things but this is not meant to be used outside of
                 // the initialisation of the system so this is fine by my book.
-                let (tx, rx) = channel();
+                let (tx, rx) = channel::<Result<ActorRef, &'static str>>();
+                info!("Created the channel to get an ActorRef from a root actor");
                 self.cthulhu.read().unwrap().as_ref().unwrap().tell_to(user_actor, (props, name, Arc::new(Mutex::new(tx))));
-                rx.recv().unwrap()
+                rx.recv().unwrap().unwrap()
             },
             None => panic!("The user actor is not initialised"),
         }
@@ -277,11 +278,10 @@ impl InnerActorSystem {
             Some(system_actor) => {
                 // NOTE: this creates a lot of things but this is not meant to be used outside of
                 // the initialisation of the system so this is fine by my book.
-                let (tx, rx) = channel();
+                let (tx, rx) = channel::<Result<ActorRef, &'static str>>();
                 info!("Created the channel to get an ActorRef from a root actor");
-                let cthulhu = self.cthulhu.read().unwrap();
-                cthulhu.as_ref().unwrap().tell_to(system_actor, (props, name, Arc::new(Mutex::new(tx))));
-                rx.recv().unwrap()
+                self.cthulhu.read().unwrap().as_ref().unwrap().tell_to(system_actor, (props, name, Arc::new(Mutex::new(tx))));
+                rx.recv().unwrap().unwrap()
             },
             None => panic!("The system actor is not initialised"),
         }

@@ -26,7 +26,7 @@ impl RootActor {
 
 impl Actor for RootActor {
     fn receive(&self, message: Box<Any>, context: ActorCell) {
-        if let Ok(message) = Box::<Any>::downcast::<(Arc<ActorFactory>, String, Arc<Mutex<Sender<ActorRef>>>)>(message) {
+        if let Ok(message) = Box::<Any>::downcast::<(Arc<ActorFactory>, String, Arc<Mutex<Sender<Result<ActorRef, &'static str>>>>)>(message) {
             let tmp = *message;
             let (props, name, tx) = tmp;
             let actor_ref = context.actor_of(props, name);
