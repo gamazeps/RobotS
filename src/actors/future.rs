@@ -5,7 +5,6 @@ use std::sync::mpsc::Sender;
 
 use actors::{Actor, ActorCell, ActorContext, ActorRef, Message};
 
-
 pub struct Complete {
     complete: Box<Any + Send>,
 }
