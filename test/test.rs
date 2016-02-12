@@ -193,6 +193,7 @@ impl SimpleActor1 {
 
 #[test]
 fn receive_message () {
+    env_logger::init().unwrap();
     let actor_system = ActorSystem::new("test".to_owned());
 
     let (tx, rx) = channel();

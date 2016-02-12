@@ -25,7 +25,7 @@ struct HelloWorld;
 impl Actor for HelloWorld {
     fn pre_start(&self, context: ActorCell) {
         let props = Props::new(Arc::new(Greeter::new), ());
-        let greeter = context.actor_of(props, "greeter".to_owned());
+        let greeter = context.actor_of(props, "greeter".to_owned()).unwrap();
         context.tell(greeter, Greetings::Greet);
     }
 

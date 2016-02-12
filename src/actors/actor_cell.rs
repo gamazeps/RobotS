@@ -101,7 +101,7 @@ pub trait ActorContext {
     fn actor_ref(&self) -> ActorRef;
 
     /// Spawns a child actor.
-    fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> ActorRef;
+    fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> Result<ActorRef, &'static str>;
 
     /// Sends a Message to the targeted ActorRef.
     fn tell<MessageTo: Message>(&self, to: ActorRef, message: MessageTo);
@@ -160,10 +160,16 @@ impl ActorContext for ActorCell {
         ActorRef::with_cell(self.clone(), self.path())
     }
 
-    fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> ActorRef {
+    fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> Result<ActorRef, &'static str> {
         let inner = unwrap_inner!(self.inner_cell, {
             panic!("Tried to create an actor from the context of a no longer existing actor");
         });
+
+        // We check that there is no path traversal.
+        if name.find("/") != None {
+            return Err("Used a '/' in the name of an actor, this is not allowed");
+        }
+
         let path = self.path().child(name);
         info!("creating actor {}", path.logical_path());
         let inner_cell = InnerActorCell::new(props,
@@ -181,7 +187,7 @@ impl ActorContext for ActorCell {
         if *(path.logical_path()) != "/system/name_resolver" {
             self.tell(inner.system.name_resolver(), ResolveRequest::Add(external_ref.clone()));
         }
-        external_ref
+        Ok(external_ref)
     }
 
     fn tell<MessageTo: Message>(&self, to: ActorRef, message: MessageTo) {
@@ -190,14 +196,14 @@ impl ActorContext for ActorCell {
         match *path {
             ActorPath::Local(_) => to.receive(InnerMessage::Message(Box::new(message)), self.actor_ref()),
             ActorPath::Distant(ref path) => {
-                println!("Sent a message of size {} to distant actor {}:{}", mem::size_of::<MessageTo>(),
+                info!("Sent a message of size {} to distant actor {}:{}", mem::size_of::<MessageTo>(),
                 path.distant_logical_path(), path.addr_port());
             },
         }
     }
 
     fn ask<MessageTo: Message>(&self, to: ActorRef, message: MessageTo, name: String) -> ActorRef {
-        let future = self.actor_of(Props::new(Arc::new(Future::new), ()), name);
+        let future = self.actor_of(Props::new(Arc::new(Future::new), ()), name).unwrap();
         future.tell_to(to, message);
         future
     }
@@ -210,7 +216,7 @@ impl ActorContext for ActorCell {
         match *path {
             ActorPath::Local(_) => future.receive(InnerMessage::Message(Box::new(Complete::new(Box::new(complete)))), self.actor_ref()),
             ActorPath::Distant(ref path) => {
-                println!("Sent a message of size {} to distant actor {}:{}", mem::size_of::<MessageTo>(),
+                info!("Sent a message of size {} to distant future {}:{}", mem::size_of::<MessageTo>(),
                 path.distant_logical_path(), path.addr_port());
             },
         }
