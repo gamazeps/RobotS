@@ -4,7 +4,7 @@
 /// creation of actors.
 
 use std::any::Any;
-use std::collections::VecDeque;
+use std::collections::{HashMap, VecDeque};
 use std::mem;
 use std::sync::{Arc, Mutex, RwLock, Weak};
 
@@ -140,10 +140,10 @@ pub trait ActorContext {
     fn father(&self) -> ActorRef;
 
     /// Children of the actor.
-    fn children(&self) -> Vec<ActorRef>;
+    fn children(&self) -> HashMap<Arc<ActorPath>, ActorRef>;
 
     /// Lifecycle monitoring, list of monitored actors.
-    fn monitoring(&self) -> Vec<ActorRef>;
+    fn monitoring(&self) -> HashMap<Arc<ActorPath>, ActorRef>;
 
     /// Logical path to the actor, such as `/user/foo/bar/baz`
     fn path(&self) -> Arc<ActorPath>;
@@ -173,8 +173,8 @@ impl ActorContext for ActorCell {
         let actor_cell = ActorCell { inner_cell: Ref::StrongRef(Arc::new(inner_cell)) };
         let internal_ref = ActorRef::with_cell(actor_cell, path.clone());
         let external_ref = internal_ref.clone();
-        inner.children.lock().unwrap().push((path.clone(), internal_ref));
-        inner.monitoring.lock().unwrap().push(external_ref.clone());
+        inner.children.lock().unwrap().insert(path.clone(), internal_ref);
+        inner.monitoring.lock().unwrap().insert(path.clone(), external_ref.clone());
         external_ref.receive_system_message(SystemMessage::Start);
         // This is a bit messy, but we have a chicken / egg issue otherwise when creating the name
         // resolver actor.
@@ -270,18 +270,15 @@ impl ActorContext for ActorCell {
         inner.father.clone()
     }
 
-    fn children(&self) -> Vec<ActorRef> {
+    fn children(&self) -> HashMap<Arc<ActorPath>, ActorRef> {
         let inner = unwrap_inner!(self.inner_cell, {
             panic!("Tried to get the children from the context of a no longer existing actor");
         });
-        let mut res = Vec::new();
-        for child in inner.children.lock().unwrap().iter() {
-            res.push(child.1.clone());
-        }
-        res
+        let children = inner.children.lock().unwrap();
+        children.clone()
     }
 
-    fn monitoring(&self) -> Vec<ActorRef> {
+    fn monitoring(&self) -> HashMap<Arc<ActorPath>, ActorRef> {
         let inner = unwrap_inner!(self.inner_cell, {
             panic!("Tried to get the monitored actors from the context of a no longer existing \
                     actor");
@@ -407,8 +404,8 @@ struct InnerActorCell {
     current_sender: Mutex<Option<ActorRef>>,
     busy: Mutex<()>,
     father: ActorRef,
-    children: Mutex<Vec<(Arc<ActorPath>, ActorRef)>>,
-    monitoring: Mutex<Vec<ActorRef>>,
+    children: Mutex<HashMap<Arc<ActorPath>, ActorRef>>,
+    monitoring: Mutex<HashMap<Arc<ActorPath>, ActorRef>>,
     actor_state: Arc<RwLock<ActorState>>,
     _monitored: Mutex<Vec<ActorRef>>,
     actor: RwLock<Arc<Actor>>,
@@ -431,8 +428,8 @@ impl InnerActorCell {
             current_sender: Mutex::new(None),
             busy: Mutex::new(()),
             father: father.clone(),
-            children: Mutex::new(Vec::new()),
-            monitoring: Mutex::new(Vec::new()),
+            children: Mutex::new(HashMap::new()),
+            monitoring: Mutex::new(HashMap::new()),
             actor_state: Arc::new(RwLock::new(ActorState::Unstarted)),
             _monitored: Mutex::new(vec![father.clone()]),
         }
@@ -511,18 +508,10 @@ impl InnerActorCell {
     }
 
     fn kill(&self, actor: ActorRef, context: ActorCell) {
-        let mut children = self.children.lock().unwrap();
-        let mut index = None;
-        for (i, child) in children.iter().enumerate() {
-            if child.1.path() == actor.path() {
-                index = Some(i);
-            }
-        }
-        for i in index.iter() {
-            let address = children.swap_remove(*i);
-            context.tell(self.system.name_resolver(),
-                         ResolveRequest::Remove(address.0));
-        }
+        self.children.lock().unwrap().remove(&actor.path()).expect(&format!("actor {} was asked to kill {} and cannot do that",
+                                             self.path.logical_path(),
+                                             actor.path().logical_path()));
+        context.tell(self.system.name_resolver(), ResolveRequest::Remove(actor.path()));
     }
 
     fn start(&self, context: ActorCell) {
