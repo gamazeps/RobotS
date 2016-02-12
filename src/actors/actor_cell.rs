@@ -322,20 +322,15 @@ enum ActorState {
 
 /// Structure used to send a failure message when the actor panics.
 struct Failsafe {
-    father: ActorRef,
-    child: ActorRef,
+    context: ActorCell,
     state: Arc<RwLock<ActorState>>,
     active: bool,
 }
 
 impl Failsafe {
-    fn new(father: ActorRef,
-           child: ActorRef,
-           state: Arc<RwLock<ActorState>>)
-           -> Failsafe {
+    fn new(context: ActorCell, state: Arc<RwLock<ActorState>>) -> Failsafe {
         Failsafe {
-            father: father,
-            child: child,
+            context: context,
             state: state,
             active: true,
         }
@@ -351,7 +346,7 @@ impl Drop for Failsafe {
     fn drop(&mut self) {
         if self.active {
             *self.state.write().unwrap() = ActorState::Failed;
-            self.father.receive_system_message(SystemMessage::Failure(self.child.clone()));
+            self.context.father().receive_system_message(SystemMessage::Failure(self.context.actor_ref()));
         }
     }
 }
@@ -459,8 +454,7 @@ impl InnerActorCell {
     fn handle_envelope(&self, context: ActorCell) {
         // Now we do not want users to be able to touch current_sender while the actor is busy.
         let _lock = self.busy.lock();
-        let failsafe = Failsafe::new(self.father.clone(),
-                                     context.actor_ref(),
+        let failsafe = Failsafe::new(context.clone(),
                                      self.actor_state.clone());
         // System messages are handled first, so that we can restart an actor if he failed without
         // loosing the messages in the mailbox.
