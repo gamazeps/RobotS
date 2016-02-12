@@ -13,6 +13,9 @@ use actors::future::{Computation, Complete, Future, FutureState};
 use actors::name_resolver::ResolveRequest;
 use actors::props::ActorFactory;
 
+/// Closure to handle failure of an Actor.
+pub type FailureHandler = Arc<Fn(ActorRef, ActorCell) + Send + Sync>;
+
 enum Ref<T: ?Sized> {
     StrongRef(Arc<T>),
     WeakRef(Weak<T>),
@@ -143,7 +146,7 @@ pub trait ActorContext {
     fn children(&self) -> HashMap<Arc<ActorPath>, ActorRef>;
 
     /// Lifecycle monitoring, list of monitored actors.
-    fn monitoring(&self) -> HashMap<Arc<ActorPath>, ActorRef>;
+    fn monitoring(&self) -> HashMap<Arc<ActorPath>, (ActorRef, FailureHandler)>;
 
     /// Logical path to the actor, such as `/user/foo/bar/baz`
     fn path(&self) -> Arc<ActorPath>;
@@ -153,6 +156,9 @@ pub trait ActorContext {
     ///
     /// The future will have the path: `$actor/$name_request`
     fn identify_actor(&self, logical_path: String, request_name: String) -> ActorRef;
+
+    ///// Monitors the given actor and will treat him with the given handler.
+    //fn monitor(&self, actor: ActorRef, handler: FailureHandler);
 }
 
 impl ActorContext for ActorCell {
@@ -180,7 +186,7 @@ impl ActorContext for ActorCell {
         let internal_ref = ActorRef::with_cell(actor_cell, path.clone());
         let external_ref = internal_ref.clone();
         inner.children.lock().unwrap().insert(path.clone(), internal_ref);
-        inner.monitoring.lock().unwrap().insert(path.clone(), external_ref.clone());
+        inner.monitoring.lock().unwrap().insert(path.clone(), (external_ref.clone(), Arc::new(InnerActorCell::restart_child)));
         external_ref.receive_system_message(SystemMessage::Start);
         // This is a bit messy, but we have a chicken / egg issue otherwise when creating the name
         // resolver actor.
@@ -284,7 +290,7 @@ impl ActorContext for ActorCell {
         children.clone()
     }
 
-    fn monitoring(&self) -> HashMap<Arc<ActorPath>, ActorRef> {
+    fn monitoring(&self) -> HashMap<Arc<ActorPath>, (ActorRef, FailureHandler)> {
         let inner = unwrap_inner!(self.inner_cell, {
             panic!("Tried to get the monitored actors from the context of a no longer existing \
                     actor");
@@ -406,7 +412,7 @@ struct InnerActorCell {
     busy: Mutex<()>,
     father: ActorRef,
     children: Mutex<HashMap<Arc<ActorPath>, ActorRef>>,
-    monitoring: Mutex<HashMap<Arc<ActorPath>, ActorRef>>,
+    monitoring: Mutex<HashMap<Arc<ActorPath>, (ActorRef, FailureHandler)>>,
     actor_state: Arc<RwLock<ActorState>>,
     _monitored: Mutex<Vec<ActorRef>>,
     actor: RwLock<Arc<Actor>>,
@@ -466,7 +472,10 @@ impl InnerActorCell {
                 SystemMessage::Restart => self.restart(context),
                 SystemMessage::Start => self.start(context),
                 SystemMessage::Failure(actor) => {
-                    actor.receive_system_message(SystemMessage::Restart)
+                    let monitoring = self.monitoring.lock().unwrap();
+                    let handler = monitoring.get(&actor.path())
+                        .expect("Received a failure notification from an unknown actor");
+                    (*handler.1)(actor, context);
                 }
             }
             failsafe.cancel();
@@ -525,6 +534,10 @@ impl InnerActorCell {
         *actor = self.props.create();
         actor.post_restart(context);
         *self.actor_state.write().unwrap() = ActorState::Running;
+    }
+
+    fn restart_child(actor: ActorRef, _context: ActorCell) {
+        actor.receive_system_message(SystemMessage::Restart);
     }
 }
 
