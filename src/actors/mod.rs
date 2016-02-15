@@ -55,17 +55,6 @@ pub trait Actor: Send + Sync + 'static {
     // Checks for sending data with the Message trait is done in the sending phase.
     fn receive(&self, message: Box<Any>, context: ActorCell);
 
-    /// Method called when a monitored actor is terminated.
-    ///
-    /// This is put in a separated method because match in rust must check all variations and we
-    /// chose not to force the user to make a case for terminations if it does not monitor any
-    /// actor.
-    // NOTE: this currently panic! because termination notices are not sent in the current
-    // implementation.
-    fn receive_termination(&self, _context: ActorCell) {
-        unimplemented!();
-    }
-
     /// Method called before the Actor is started.
     fn pre_start(&self, _context: ActorCell) {}
 

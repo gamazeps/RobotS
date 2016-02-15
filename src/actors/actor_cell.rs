@@ -151,6 +151,9 @@ pub trait ActorContext {
     /// Actors monitoring this actor.
     fn monitored_by(&self) -> Vec<ActorRef>;
 
+    /// Monitor an actor with the given handler.
+    fn monitor(&self, actor: ActorRef, handler: FailureHandler);
+
     /// Logical path to the actor, such as `/user/foo/bar/baz`
     fn path(&self) -> Arc<ActorPath>;
 
@@ -159,6 +162,9 @@ pub trait ActorContext {
     ///
     /// The future will have the path: `$actor/$name_request`
     fn identify_actor(&self, logical_path: String, request_name: String) -> ActorRef;
+
+    /// Sends a control message to the given actor.
+    fn tell_control(&self, actor: ActorRef, message: ControlMessage);
 }
 
 impl ActorContext for ActorCell {
@@ -230,20 +236,16 @@ impl ActorContext for ActorCell {
 
     fn forward_result<T: Message>(&self, future: ActorRef, actor: ActorRef) {
         self.tell(future, Computation::Forward(actor, Arc::new(move |value, context, to| {
-            // FIXME(gamazeps): error handling for cthulhu's sake !
-            if let Ok(value) = Box::<Any + Send>::downcast::<T>(value) {
-                context.tell(to, *value);
-            }
+            let value = Box::<Any + Send>::downcast::<T>(value).expect("Message of the wrong type");
+            context.tell(to, *value);
             FutureState::Extracted
         })));
     }
 
     fn forward_result_to_future<T: Message>(&self, future: ActorRef, actor: ActorRef) {
         self.tell(future, Computation::Forward(actor, Arc::new(move |value, context, to| {
-            // FIXME(gamazeps): error handling for cthulhu's sake !
-            if let Ok(value) = Box::<Any + Send>::downcast::<T>(value) {
-                context.complete(to, *value);
-            }
+            let value = Box::<Any + Send>::downcast::<T>(value).expect("Message of the wrong type");
+            context.complete(to, *value);
             FutureState::Extracted
         })));
     }
@@ -265,14 +267,20 @@ impl ActorContext for ActorCell {
         current_sender.as_ref().unwrap().clone()
     }
 
+    fn tell_control(&self, actor: ActorRef, message: ControlMessage) {
+        let path = actor.path();
+        match *path {
+            ActorPath::Local(_) => actor.receive(InnerMessage::Control(message), self.actor_ref()),
+            ActorPath::Distant(_) => {},
+        }
+    }
+
     fn stop(&self, actor_ref: ActorRef) {
-        actor_ref.receive(InnerMessage::Control(ControlMessage::PoisonPill),
-                          self.actor_ref());
+        self.tell_control(actor_ref, ControlMessage::PoisonPill);
     }
 
     fn kill_me(&self) {
-        self.father().receive(InnerMessage::Control(ControlMessage::KillMe(self.actor_ref())),
-                              self.actor_ref());
+        self.tell_control(self.father(), ControlMessage::KillMe(self.actor_ref()));
     }
 
     fn father(&self) -> ActorRef {
@@ -301,10 +309,19 @@ impl ActorContext for ActorCell {
 
     fn monitored_by(&self) -> Vec<ActorRef> {
         let inner = unwrap_inner!(self.inner_cell, {
-            panic!("Tried to get the children from the context of a no longer existing actor");
+            panic!("Tried to get the monitoring actors from the context of a no longer existing actor");
         });
         let monitored_by = inner.monitored_by.lock().unwrap();
         monitored_by.clone()
+    }
+
+    fn monitor(&self, actor: ActorRef, handler: FailureHandler) {
+        let inner = unwrap_inner!(self.inner_cell, {
+            panic!("tried to have a no longer existing actor monitor an other actor?")
+        });
+        self.tell_control(actor.clone(), ControlMessage::RegisterMonitoring);
+        let mut monitoring = inner.monitoring.lock().unwrap();
+        monitoring.insert(actor.path(), (actor, handler));
     }
 
     fn path(&self) -> Arc<ActorPath> {
@@ -361,7 +378,7 @@ impl Drop for Failsafe {
         if self.active {
             *self.state.write().unwrap() = ActorState::Failed;
             for actor in self.context.monitored_by().iter() {
-                actor.receive_system_message(SystemMessage::Failure(self.context.actor_ref()));
+                self.context.tell_control(actor.clone(), ControlMessage::Failure(self.context.actor_ref()));
             }
         }
     }
@@ -370,7 +387,7 @@ impl Drop for Failsafe {
 /// Special messages issued by the actor system.
 /// Note that these are treated with the highest priority and will thus be handled before any
 /// InnerMessage is handled.
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum SystemMessage {
     /// Restarts the actor by replacing it with a new version created with its ActorFactory.
     Restart,
@@ -378,9 +395,6 @@ pub enum SystemMessage {
     /// Tells the actor to initialize itself.
     /// Note that the initialization is not done by the father for fairness reasons.
     Start,
-
-    /// Tells an actor that its child failed.
-    Failure(ActorRef),
 }
 
 /// Structure used to store a message and its sender.
@@ -405,11 +419,14 @@ pub enum ControlMessage {
     /// This is what is sent when the `context.stop(actor_ref)` is called.
     PoisonPill,
 
-    /// Message sent to the monitoring actors when the actor is terminated.
-    Terminated(ActorRef),
+    /// Tells an actor another failed.
+    Failure(ActorRef),
 
     /// Message sent to the father of an actor to request being terminated.
     KillMe(ActorRef),
+
+    /// Message sent to be notified of failures.
+    RegisterMonitoring,
 }
 
 struct InnerActorCell {
@@ -480,12 +497,6 @@ impl InnerActorCell {
             match message {
                 SystemMessage::Restart => self.restart(context),
                 SystemMessage::Start => self.start(context),
-                SystemMessage::Failure(actor) => {
-                    let monitoring = self.monitoring.lock().unwrap();
-                    let handler = monitoring.get(&actor.path())
-                        .expect("Received a failure notification from an unknown actor");
-                    (*handler.1)(actor, context);
-                }
             }
             failsafe.cancel();
             return;
@@ -512,8 +523,17 @@ impl InnerActorCell {
                     InnerMessage::Control(message) => {
                         match message {
                             ControlMessage::PoisonPill => context.kill_me(),
-                            ControlMessage::Terminated(_) => actor.receive_termination(context),
+                            ControlMessage::Failure(actor) => {
+                                let monitoring = self.monitoring.lock().unwrap();
+                                let handler = monitoring.get(&actor.path())
+                                    .expect("Received a failure notification from an unknown actor");
+                                (*handler.1)(actor, context);
+                            },
                             ControlMessage::KillMe(actor_ref) => self.kill(actor_ref, context),
+                            ControlMessage::RegisterMonitoring => {
+                                let mut mon = self.monitored_by.lock().unwrap();
+                                mon.push(context.sender());
+                            },
                         }
                     }
                 }

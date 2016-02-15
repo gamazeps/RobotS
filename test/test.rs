@@ -256,3 +256,76 @@ fn receive_correct_message () {
 
     actor_system.shutdown();
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct SimpleActor3;
+
+impl Actor for SimpleActor3 {
+    fn receive(&self, _message: Box<Any>, _context: ActorCell) {
+        panic!("Panic as planned, should start an failure handler.");
+    }
+}
+
+impl SimpleActor3 {
+    fn new(_args: ()) -> SimpleActor3 {
+        SimpleActor3
+    }
+}
+
+#[derive(Clone)]
+enum SimpleActor4Messages {
+    RegisterMe,
+    ActorFailure,
+}
+
+struct SimpleActor4 {
+    sender: Arc<Mutex<Sender<Res>>>,
+}
+
+impl Actor for SimpleActor4 {
+    fn receive(&self, message: Box<Any>, context: ActorCell) {
+        if let Ok(message) = Box::<Any>::downcast::<SimpleActor4Messages>(message) {
+            match *message {
+                SimpleActor4Messages::RegisterMe => {
+                    context.monitor(context.sender(), Arc::new(|_actor, context| {
+                        // When the monitored actor failed, the monitorer pipes a message to itself.
+                        context.tell(context.actor_ref(), SimpleActor4Messages::ActorFailure);
+                    }));
+                    context.tell(context.sender(), ());
+                },
+                SimpleActor4Messages::ActorFailure => {
+                    let _ = self.sender.lock().unwrap().send(Res::Ok);
+                }
+            }
+        }
+    }
+}
+
+impl SimpleActor4 {
+    fn new(args: Arc<Mutex<Sender<Res>>>) -> SimpleActor4 {
+        SimpleActor4 {
+            sender: args
+        }
+    }
+}
+
+#[test]
+fn receive_failure_notifications () {
+    let actor_system = ActorSystem::new("test".to_owned());
+
+    let (tx, rx) = channel();
+    let tx = Arc::new(Mutex::new(tx));
+
+    let props_panicker = Props::new(Arc::new(SimpleActor3::new), ());
+    let props_handler = Props::new(Arc::new(SimpleActor4::new), tx);
+    let panicker = actor_system.actor_of(props_panicker.clone(), "panicker".to_owned());
+    let handler = actor_system.actor_of(props_handler.clone(), "handler".to_owned());
+
+    panicker.tell_to(handler.clone(), SimpleActor4Messages::RegisterMe);
+
+    let res = rx.recv();
+    assert_eq!(Ok(Res::Ok), res);
+
+    actor_system.shutdown();
+}
