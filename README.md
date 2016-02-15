@@ -128,7 +128,7 @@ This gives most of the communication methods and features expected of an actor:
 fn actor_ref(&self) -> ActorRef;
 
 /// Spawns a child actor.
-fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> ActorRef;
+fn actor_of(&self, props: Arc<ActorFactory>, name: String) -> Result<ActorRef, &'static str>;
 
 /// Sends a Message to the targeted ActorRef.
 fn tell<MessageTo: Message>(&self, to: ActorRef, message: MessageTo);
@@ -167,10 +167,16 @@ fn sender(&self) -> ActorRef;
 fn father(&self) -> ActorRef;
 
 /// Children of the actor.
-fn children(&self) -> Vec<ActorRef>;
+fn children(&self) -> HashMap<Arc<ActorPath>, ActorRef>;
 
 /// Lifecycle monitoring, list of monitored actors.
-fn monitoring(&self) -> Vec<ActorRef>;
+fn monitoring(&self) -> HashMap<Arc<ActorPath>, (ActorRef, FailureHandler)>;
+
+/// Actors monitoring this actor.
+fn monitored_by(&self) -> Vec<ActorRef>;
+
+/// Monitor an actor with the given handler.
+fn monitor(&self, actor: ActorRef, handler: FailureHandler);
 
 /// Logical path to the actor, such as `/user/foo/bar/baz`
 fn path(&self) -> Arc<ActorPath>;
@@ -180,6 +186,12 @@ fn path(&self) -> Arc<ActorPath>;
 ///
 /// The future will have the path: `$actor/$name_request`
 fn identify_actor(&self, logical_path: String, request_name: String) -> ActorRef;
+
+/// Sends a control message to the given actor.
+fn tell_control(&self, actor: ActorRef, message: ControlMessage);
+
+/// Puts the actor in a state of failure with the given reason.
+fn fail(&self, reason: &'static str);
 ```
 
 ## Contributing
@@ -190,6 +202,7 @@ All contribution are welcome, if you have a feature request don't hesitate to op
 
   * Actor communication in a local context.
   * Actor supervision with an actor hierarchy (each actor supervises its children).
+  * Failure handling with explicit reaosns and handlers.
   * Ask pattern using Futures for asynchronous requests.
   * Name resolving (obtaining an ActorRef from a logical path).
 
