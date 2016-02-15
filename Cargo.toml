@@ -1,6 +1,6 @@
 [package]
 name = "RobotS"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Felix Raimundo <gamaz3ps@gmail.com>"]
 documentation = "http://gamazeps.github.io/RobotS/"
 
