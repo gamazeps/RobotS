@@ -288,7 +288,7 @@ impl Actor for SimpleActor4 {
         if let Ok(message) = Box::<Any>::downcast::<SimpleActor4Messages>(message) {
             match *message {
                 SimpleActor4Messages::RegisterMe => {
-                    context.monitor(context.sender(), Arc::new(|_actor, context| {
+                    context.monitor(context.sender(), Arc::new(|_failure, context| {
                         // When the monitored actor failed, the monitorer pipes a message to itself.
                         context.tell(context.actor_ref(), SimpleActor4Messages::ActorFailure);
                     }));
@@ -326,6 +326,106 @@ fn receive_failure_notifications () {
 
     let res = rx.recv();
     assert_eq!(Ok(Res::Ok), res);
+
+    actor_system.shutdown();
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+struct SimpleActor5;
+
+impl Actor for SimpleActor5 {
+    fn receive(&self, _message: Box<Any>, context: ActorCell) {
+        context.fail("failure");
+    }
+}
+
+impl SimpleActor5 {
+    fn new(_args: ()) -> SimpleActor5 {
+        SimpleActor5
+    }
+}
+
+#[derive(Clone)]
+enum SimpleActor6Messages {
+    RegisterMe,
+    ActorFailureOk,
+    ActorFailureErr,
+}
+
+struct SimpleActor6 {
+    sender: Arc<Mutex<Sender<Res>>>,
+}
+
+impl Actor for SimpleActor6 {
+    fn receive(&self, message: Box<Any>, context: ActorCell) {
+        if let Ok(message) = Box::<Any>::downcast::<SimpleActor6Messages>(message) {
+            match *message {
+                SimpleActor6Messages::RegisterMe => {
+                    context.monitor(context.sender(), Arc::new(|failure, context| {
+                        // When the monitored actor failed, the monitorer pipes a message to itself.
+                        match failure.reason() {
+                            "failure" => context.tell(context.actor_ref(), SimpleActor6Messages::ActorFailureOk),
+                            _ => context.tell(context.actor_ref(), SimpleActor6Messages::ActorFailureErr),
+                        };
+                    }));
+                    context.tell(context.sender(), ());
+                },
+                SimpleActor6Messages::ActorFailureOk => {
+                    let _ = self.sender.lock().unwrap().send(Res::Ok);
+                },
+                SimpleActor6Messages::ActorFailureErr => {
+                    let _ = self.sender.lock().unwrap().send(Res::Err);
+                },
+            }
+        }
+    }
+}
+
+impl SimpleActor6 {
+    fn new(args: Arc<Mutex<Sender<Res>>>) -> SimpleActor6 {
+        SimpleActor6 {
+            sender: args
+        }
+    }
+}
+
+#[test]
+fn receive_failure_reason_ok () {
+    let actor_system = ActorSystem::new("test".to_owned());
+
+    let (tx, rx) = channel();
+    let tx = Arc::new(Mutex::new(tx));
+
+    let props_panicker = Props::new(Arc::new(SimpleActor5::new), ());
+    let props_handler = Props::new(Arc::new(SimpleActor6::new), tx);
+    let panicker = actor_system.actor_of(props_panicker.clone(), "panicker".to_owned());
+    let handler = actor_system.actor_of(props_handler.clone(), "handler".to_owned());
+
+    panicker.tell_to(handler.clone(), SimpleActor6Messages::RegisterMe);
+
+    let res = rx.recv();
+    assert_eq!(Ok(Res::Ok), res);
+
+    actor_system.shutdown();
+}
+
+#[test]
+fn receive_failure_reason_err () {
+    let actor_system = ActorSystem::new("test".to_owned());
+
+    let (tx, rx) = channel();
+    let tx = Arc::new(Mutex::new(tx));
+
+    // This actors does not fail with the "failure" reason, so the reason will not be correct
+    let props_panicker = Props::new(Arc::new(SimpleActor3::new), ());
+    let props_handler = Props::new(Arc::new(SimpleActor6::new), tx);
+    let panicker = actor_system.actor_of(props_panicker.clone(), "panicker".to_owned());
+    let handler = actor_system.actor_of(props_handler.clone(), "handler".to_owned());
+
+    panicker.tell_to(handler.clone(), SimpleActor6Messages::RegisterMe);
+
+    let res = rx.recv();
+    assert_eq!(Ok(Res::Err), res);
 
     actor_system.shutdown();
 }

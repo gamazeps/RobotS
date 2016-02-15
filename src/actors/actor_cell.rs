@@ -14,7 +14,7 @@ use actors::name_resolver::ResolveRequest;
 use actors::props::ActorFactory;
 
 /// Closure to handle failure of an Actor.
-pub type FailureHandler = Arc<Fn(ActorRef, ActorCell) + Send + Sync>;
+pub type FailureHandler = Arc<Fn(Failure, ActorCell) + Send + Sync>;
 
 enum Ref<T: ?Sized> {
     StrongRef(Arc<T>),
@@ -165,6 +165,9 @@ pub trait ActorContext {
 
     /// Sends a control message to the given actor.
     fn tell_control(&self, actor: ActorRef, message: ControlMessage);
+
+    /// Puts the actor in a state of failure with the given reason.
+    fn fail(&self, reason: &'static str);
 }
 
 impl ActorContext for ActorCell {
@@ -338,9 +341,20 @@ impl ActorContext for ActorCell {
         });
         self.ask(inner.system.name_resolver(), ResolveRequest::Get(name), request_name)
     }
+
+    fn fail(&self, reason: &'static str) {
+        let inner = unwrap_inner!(self.inner_cell, {
+            panic!("Tried to get the state of a no longer existing actor while resolving \
+                    a path. This should *never* happen");
+        });
+        {*inner.actor_state.write().unwrap() = ActorState::Failed;}
+        for actor in self.monitored_by().iter() {
+            self.tell_control(actor.clone(), ControlMessage::Failure(Failure::new(self.actor_ref(), reason)));
+        }
+    }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 /// Interna representation of the actor's state.
 enum ActorState {
     /// The actor has panicked and has not yet been restarded.
@@ -354,15 +368,13 @@ enum ActorState {
 /// Structure used to send a failure message when the actor panics.
 struct Failsafe {
     context: ActorCell,
-    state: Arc<RwLock<ActorState>>,
     active: bool,
 }
 
 impl Failsafe {
-    fn new(context: ActorCell, state: Arc<RwLock<ActorState>>) -> Failsafe {
+    fn new(context: ActorCell) -> Failsafe {
         Failsafe {
             context: context,
-            state: state,
             active: true,
         }
     }
@@ -376,10 +388,7 @@ impl Failsafe {
 impl Drop for Failsafe {
     fn drop(&mut self) {
         if self.active {
-            *self.state.write().unwrap() = ActorState::Failed;
-            for actor in self.context.monitored_by().iter() {
-                self.context.tell_control(actor.clone(), ControlMessage::Failure(self.context.actor_ref()));
-            }
+            self.context.fail("panic");
         }
     }
 }
@@ -420,13 +429,33 @@ pub enum ControlMessage {
     PoisonPill,
 
     /// Tells an actor another failed.
-    Failure(ActorRef),
+    Failure(Failure),
 
     /// Message sent to the father of an actor to request being terminated.
     KillMe(ActorRef),
 
     /// Message sent to be notified of failures.
     RegisterMonitoring,
+}
+
+#[derive(Clone)]
+/// Structurer containing Actor Failure informations.
+pub struct Failure {
+    source: ActorRef,
+    reason: &'static str,
+}
+
+impl Failure {
+    fn new(source: ActorRef, reason: &'static str) -> Failure {
+        Failure {
+            source: source,
+            reason: reason,
+        }
+    }
+    /// Actor that failed.
+    pub fn actor(&self) -> ActorRef {self.source.clone()}
+    /// Reason of failure.
+    pub fn reason(&self) -> &'static str {self.reason}
 }
 
 struct InnerActorCell {
@@ -487,7 +516,7 @@ impl InnerActorCell {
     fn handle_envelope(&self, context: ActorCell) {
         // Now we do not want users to be able to touch current_sender while the actor is busy.
         let _lock = self.busy.lock();
-        let failsafe = Failsafe::new(context.clone(), self.actor_state.clone());
+        let failsafe = Failsafe::new(context.clone());
         // System messages are handled first, so that we can restart an actor if he failed without
         // loosing the messages in the mailbox.
         // NOTE: This does not break the fact that messages sent by the same actor are treated in
@@ -502,7 +531,8 @@ impl InnerActorCell {
             return;
         }
 
-        if *self.actor_state.read().unwrap() == ActorState::Running {
+        let state = {self.actor_state.read().unwrap().clone()};
+        if state == ActorState::Running {
             let envelope = match self.mailbox.lock().unwrap().pop_front() {
                 Some(envelope) => envelope,
                 None => {
@@ -523,11 +553,11 @@ impl InnerActorCell {
                     InnerMessage::Control(message) => {
                         match message {
                             ControlMessage::PoisonPill => context.kill_me(),
-                            ControlMessage::Failure(actor) => {
+                            ControlMessage::Failure(failure) => {
                                 let monitoring = self.monitoring.lock().unwrap();
-                                let handler = monitoring.get(&actor.path())
+                                let handler = monitoring.get(&failure.actor().path())
                                     .expect("Received a failure notification from an unknown actor");
-                                (*handler.1)(actor, context);
+                                (*handler.1)(failure, context);
                             },
                             ControlMessage::KillMe(actor_ref) => self.kill(actor_ref, context),
                             ControlMessage::RegisterMonitoring => {
@@ -565,8 +595,8 @@ impl InnerActorCell {
         *self.actor_state.write().unwrap() = ActorState::Running;
     }
 
-    fn restart_child(actor: ActorRef, _context: ActorCell) {
-        actor.receive_system_message(SystemMessage::Restart);
+    fn restart_child(failure: Failure, _context: ActorCell) {
+        failure.actor().receive_system_message(SystemMessage::Restart);
     }
 }
 
