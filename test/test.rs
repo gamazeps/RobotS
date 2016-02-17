@@ -142,7 +142,6 @@ fn resolve_name_real_path() {
     std::thread::sleep(Duration::from_millis(100));
 
     let res = actor_system.ask(answerer, "/user/sender".to_owned(), "future".to_owned());
-    println!("lol");
     let res: Option<ActorRef> = actor_system.extract_result(res);
     assert_eq!(requester.path(), res.unwrap().path());
 
@@ -160,7 +159,6 @@ fn resolve_name_fake_path() {
     std::thread::sleep(Duration::from_millis(100));
 
     let res = actor_system.ask(answerer, "/foo/bar".to_owned(), "future".to_owned());
-    std::thread::sleep(Duration::from_millis(100));
     let res: Option<ActorRef> = actor_system.extract_result(res);
 
     match res {
