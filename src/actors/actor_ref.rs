@@ -1,7 +1,7 @@
 use std::any::Any;
 use std::sync::Arc;
 
-use actors::{ActorContext, InnerMessage, Message, SystemMessage};
+use actors::{InnerMessage, Message, SystemMessage};
 use actors::actor_cell::ActorCell;
 use actors::cthulhu::Cthulhu;
 

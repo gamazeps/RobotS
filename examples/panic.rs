@@ -11,7 +11,7 @@ use std::any::Any;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use robots::actors::{Actor, ActorSystem, ActorCell, ActorContext, Props};
+use robots::actors::{Actor, ActorSystem, ActorCell, Props};
 
 #[derive(Copy, Clone)]
 enum InternalStateMessage {
