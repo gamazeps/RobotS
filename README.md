@@ -194,6 +194,65 @@ fn tell_control(&self, actor: ActorRef, message: ControlMessage);
 fn fail(&self, reason: &'static str);
 ```
 
+## Logging
+
+RobotS logs informations on the `info` channel of the `log` crate.
+
+If you have never used this crate you can simply activate the logs by adding the following lines to
+your executable:
+
+```rust
+extern crate env_logger;
+
+// Your use and extern crates...
+
+fn main() {
+    env_logger::init().unwrap();
+
+    // Your main code.
+}
+```
+
+You will need to set the `RUST_LOG` environment variable to `robots=info`. For example when launching the factorial
+example we see:
+
+```
+➜  RobotS git:(master) ✗ RUST_LOG=robots=info cargo run --example=factorial
+   Compiling RobotS v0.3.0 (file:///home/gamazeps/dev/RobotS)
+     Running `target/debug/examples/factorial`
+INFO:robots::actors::actor_system: Created cthulhu
+INFO:robots::actors::actor_ref: /user receiving a system message
+INFO:robots::actors::actor_system: Created /user actor
+INFO:robots::actors::actor_ref: /system receiving a system message
+INFO:robots::actors::actor_system: Created /system actor
+INFO:robots::actors::actor_system: Launched the first thread
+INFO:robots::actors::actor_system: Created the channel to get an ActorRef from a root actor
+INFO:robots::actors::actor_ref: / is sending a message to /system
+INFO:robots::actors::actor_ref: /system receiving a message
+INFO:robots::actors::actor_ref: /user handling a message
+INFO:robots::actors::actor_ref: /system handling a message
+INFO:robots::actors::actor_ref: /system handling a message
+INFO:robots::actors::actor_cell: creating actor /system/name_resolver
+INFO:robots::actors::actor_ref: /system/name_resolver receiving a system message
+INFO:robots::actors::actor_system: Created the /system/name_resolver actor
+INFO:robots::actors::actor_ref: /system/name_resolver handling a message
+INFO:robots::actors::actor_system: Created the channel to get an ActorRef from a root actor
+INFO:robots::actors::actor_ref: / is sending a message to /user
+INFO:robots::actors::actor_ref: /user receiving a message
+INFO:robots::actors::actor_ref: /user handling a message
+INFO:robots::actors::actor_cell: creating actor /user/sender
+INFO:robots::actors::actor_ref: /user/sender receiving a system message
+INFO:robots::actors::actor_ref: /system/name_resolver receiving a message
+INFO:robots::actors::actor_ref: /user/sender handling a message
+INFO:robots::actors::actor_system: Created the channel to get an ActorRef from a root actor
+INFO:robots::actors::actor_ref: /system/name_resolver handling a message
+INFO:robots::actors::actor_ref: / is sending a message to /user
+INFO:robots::actors::actor_ref: /user receiving a message
+....
+```
+
+This is a bit verbose but allows you to monitor the proper execution of your program.
+
 ## Contributing
 
 All contribution are welcome, if you have a feature request don't hesitate to open an issue !
@@ -205,6 +264,7 @@ All contribution are welcome, if you have a feature request don't hesitate to op
   * Failure handling with explicit reaosns and handlers.
   * Ask pattern using Futures for asynchronous requests.
   * Name resolving (obtaining an ActorRef from a logical path).
+  * Logging.
 
 ## TODO
 
