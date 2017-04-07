@@ -3,6 +3,8 @@ name = "RobotS"
 version = "0.3.0"
 authors = ["Felix Raimundo <gamaz3ps@gmail.com>"]
 documentation = "http://gamazeps.github.io/RobotS/"
+license = "MIT"
+description = "Actor framework"
 
 [features]
 default = []
