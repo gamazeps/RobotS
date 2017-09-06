@@ -3,14 +3,14 @@ name = "RobotS"
 version = "0.3.0"
 authors = ["Felix Raimundo <gamaz3ps@gmail.com>"]
 documentation = "http://gamazeps.github.io/RobotS/"
+license = "MIT"
+description = "Actor framework"
 
 [features]
 default = []
-dev = ["clippy"]
+dev = []
 
 [dependencies]
-# Here we always want the last one, because there are many breaking changes.
-clippy = {version = "*", optional = true}
 rand = "0.3.0"
 # Logging
 log = "0.3"
