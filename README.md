@@ -8,6 +8,15 @@ Robots is a pure rust actor system library, it takes a strong inspiration from [
 
 Documentation can be found [here](http://gamazeps.github.io/RobotS/).
 
+## Maintained status
+
+I am no longer working on this crate, so features will probably not be added by me.
+
+If you want to add features feel free to submit a PR, I will try to review it within the week.
+
+Bugs and errors will nevertheless be corrected if an issue is opened, provided they are not too long
+to correct.
+
 ## Build it
 
 This library can be built on a stable rustc (starting at 1.4.0) version.
