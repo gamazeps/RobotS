@@ -87,7 +87,7 @@ impl Actor for Future {
             },
             Err(message) => {
                 // The double downgrade is ugly but we can't have an enum containing the two
-                // variants (see http://gamazeps.github.io/notes-7.html).
+                // variants (see http://gamazeps.github.io/posts/robots_notes_7.html).
                 if let Ok(msg) = Box::<Any>::downcast::<Complete>(message) {
                     // We need to free the lock on the state.
                     {
