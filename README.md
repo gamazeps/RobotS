@@ -124,7 +124,7 @@ impl Actor for Printer {
 As you can see this is rather easy.
 
 If you think that using Box&lt;Any> is very bad and that someone should do terrible things to me, check
-[this post](http://gamazeps.github.io/why-boxany.html) before :)
+[this post](http://gamazeps.github.io/posts/robots_any.html) before :)
 
 ### ActorContext methods
 
