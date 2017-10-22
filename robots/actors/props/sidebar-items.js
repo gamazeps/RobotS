@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Props","Props is the current only ActorFactory."]],"trait":[["ActorFactory","Public interface of a Props."]]});

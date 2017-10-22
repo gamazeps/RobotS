@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `ActorContext` trait in crate `robots`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, ActorContext">
+
+    <title>robots::actors::actor_cell::ActorContext - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc trait">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'>Trait ActorContext</p><div class="block items"><ul><li><a href="#required-methods">Required Methods</a></li><li><a href="#implementors">Implementors</a></li></ul></div><p class='location'><a href='../../index.html'>robots</a>::<wbr><a href='../index.html'>actors</a>::<wbr><a href='index.html'>actor_cell</a></p><script>window.sidebarCurrent = {name: 'ActorContext', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content">
+<h1 class='fqn'><span class='in-band'>Trait <a href='../../index.html'>robots</a>::<wbr><a href='../index.html'>actors</a>::<wbr><a href='index.html'>actor_cell</a>::<wbr><a class="trait" href=''>ActorContext</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../../../src/robots/actors/actor_cell.rs.html#102-171' title='goto source code'>[src]</a></span></h1>
+<pre class='rust trait'>pub trait ActorContext {
+    fn <a href='#tymethod.actor_ref' class='fnname'>actor_ref</a>(&amp;self) -&gt; <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>;
+<div class='item-spacer'></div>    fn <a href='#tymethod.actor_of' class='fnname'>actor_of</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;props: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/arc/struct.Arc.html" title="struct alloc::arc::Arc">Arc</a>&lt;<a class="trait" href="../../../robots/actors/props/trait.ActorFactory.html" title="trait robots::actors::props::ActorFactory">ActorFactory</a>&gt;, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;name: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a><br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, &amp;'static <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>&gt;;
+<div class='item-spacer'></div>    fn <a href='#tymethod.tell' class='fnname'>tell</a>&lt;MessageTo:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>&gt;(&amp;self, to: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, message: MessageTo);
+<div class='item-spacer'></div>    fn <a href='#tymethod.ask' class='fnname'>ask</a>&lt;MessageTo:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;message: MessageTo, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;future_name: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a><br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>;
+<div class='item-spacer'></div>    fn <a href='#tymethod.complete' class='fnname'>complete</a>&lt;MessageTo:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>&gt;(&amp;self, to: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, complete: MessageTo);
+<div class='item-spacer'></div>    fn <a href='#tymethod.forward_result' class='fnname'>forward_result</a>&lt;T:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>&gt;(&amp;self, future: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, to: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>);
+<div class='item-spacer'></div>    fn <a href='#tymethod.forward_result_to_future' class='fnname'>forward_result_to_future</a>&lt;T:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;future: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;to: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a><br>&nbsp;&nbsp;&nbsp;&nbsp;);
+<div class='item-spacer'></div>    fn <a href='#tymethod.do_computation' class='fnname'>do_computation</a>&lt;T:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>, F:&nbsp;<a class="trait" href="https://doc.rust-lang.org/nightly/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;<a class="trait" href="../../../robots/actors/trait.Any.html" title="trait robots::actors::Any">Any</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;, <a class="struct" href="../../../robots/actors/actor_cell/struct.ActorCell.html" title="struct robots::actors::actor_cell::ActorCell">ActorCell</a>) -&gt; T + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;future: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;closure: F<br>&nbsp;&nbsp;&nbsp;&nbsp;);
+<div class='item-spacer'></div>    fn <a href='#tymethod.stop' class='fnname'>stop</a>(&amp;self, actor_ref: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>);
+<div class='item-spacer'></div>    fn <a href='#tymethod.kill_me' class='fnname'>kill_me</a>(&amp;self);
+<div class='item-spacer'></div>    fn <a href='#tymethod.sender' class='fnname'>sender</a>(&amp;self) -&gt; <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>;
+<div class='item-spacer'></div>    fn <a href='#tymethod.father' class='fnname'>father</a>(&amp;self) -&gt; <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>;
+<div class='item-spacer'></div>    fn <a href='#tymethod.children' class='fnname'>children</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/std/collections/hash/map/struct.HashMap.html" title="struct std::collections::hash::map::HashMap">HashMap</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/arc/struct.Arc.html" title="struct alloc::arc::Arc">Arc</a>&lt;<a class="enum" href="../../../robots/actors/actor_ref/enum.ActorPath.html" title="enum robots::actors::actor_ref::ActorPath">ActorPath</a>&gt;, <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>&gt;;
+<div class='item-spacer'></div>    fn <a href='#tymethod.monitoring' class='fnname'>monitoring</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/std/collections/hash/map/struct.HashMap.html" title="struct std::collections::hash::map::HashMap">HashMap</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/arc/struct.Arc.html" title="struct alloc::arc::Arc">Arc</a>&lt;<a class="enum" href="../../../robots/actors/actor_ref/enum.ActorPath.html" title="enum robots::actors::actor_ref::ActorPath">ActorPath</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">(</a><a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, <a class="type" href="../../../robots/actors/actor_cell/type.FailureHandler.html" title="type robots::actors::actor_cell::FailureHandler">FailureHandler</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">)</a>&gt;;
+<div class='item-spacer'></div>    fn <a href='#tymethod.monitored_by' class='fnname'>monitored_by</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>&gt;;
+<div class='item-spacer'></div>    fn <a href='#tymethod.monitor' class='fnname'>monitor</a>(&amp;self, actor: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, handler: <a class="type" href="../../../robots/actors/actor_cell/type.FailureHandler.html" title="type robots::actors::actor_cell::FailureHandler">FailureHandler</a>);
+<div class='item-spacer'></div>    fn <a href='#tymethod.path' class='fnname'>path</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/arc/struct.Arc.html" title="struct alloc::arc::Arc">Arc</a>&lt;<a class="enum" href="../../../robots/actors/actor_ref/enum.ActorPath.html" title="enum robots::actors::actor_ref::ActorPath">ActorPath</a>&gt;;
+<div class='item-spacer'></div>    fn <a href='#tymethod.identify_actor' class='fnname'>identify_actor</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;logical_path: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;request_name: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a><br>&nbsp;&nbsp;&nbsp;&nbsp;) -&gt; <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>;
+<div class='item-spacer'></div>    fn <a href='#tymethod.tell_control' class='fnname'>tell_control</a>(&amp;self, actor: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, message: <a class="enum" href="../../../robots/actors/actor_cell/enum.ControlMessage.html" title="enum robots::actors::actor_cell::ControlMessage">ControlMessage</a>);
+<div class='item-spacer'></div>    fn <a href='#tymethod.fail' class='fnname'>fail</a>(&amp;self, reason: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>);
+}</pre><div class='docblock'><p>This is the API that Actors are supposed to see of their context while handling a message.</p>
+</div>
+            <h2 id='required-methods' class='small-section-header'>
+              Required Methods<a href='#required-methods' class='anchor'></a>
+            </h2>
+            <div class='methods'>
+        <h3 id='tymethod.actor_ref' class='method'><span id='actor_ref.v' class='invisible'><code>fn <a href='#tymethod.actor_ref' class='fnname'>actor_ref</a>(&amp;self) -&gt; <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a></code></span></h3><div class='docblock'><p>Returns an ActorRef to the Actor.</p>
+</div><h3 id='tymethod.actor_of' class='method'><span id='actor_of.v' class='invisible'><code>fn <a href='#tymethod.actor_of' class='fnname'>actor_of</a>(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;props: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/arc/struct.Arc.html" title="struct alloc::arc::Arc">Arc</a>&lt;<a class="trait" href="../../../robots/actors/props/trait.ActorFactory.html" title="trait robots::actors::props::ActorFactory">ActorFactory</a>&gt;, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a><br>) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, &amp;'static <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>&gt;</code></span></h3><div class='docblock'><p>Spawns a child actor.</p>
+</div><h3 id='tymethod.tell' class='method'><span id='tell.v' class='invisible'><code>fn <a href='#tymethod.tell' class='fnname'>tell</a>&lt;MessageTo:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>&gt;(&amp;self, to: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, message: MessageTo)</code></span></h3><div class='docblock'><p>Sends a Message to the targeted ActorRef.</p>
+</div><h3 id='tymethod.ask' class='method'><span id='ask.v' class='invisible'><code>fn <a href='#tymethod.ask' class='fnname'>ask</a>&lt;MessageTo:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;to: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;message: MessageTo, <br>&nbsp;&nbsp;&nbsp;&nbsp;future_name: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a><br>) -&gt; <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a></code></span></h3><div class='docblock'><p>Creates a Future, this Future will send the message to the targetted ActorRef (and thus be
+the sender of the message).</p>
+</div><h3 id='tymethod.complete' class='method'><span id='complete.v' class='invisible'><code>fn <a href='#tymethod.complete' class='fnname'>complete</a>&lt;MessageTo:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>&gt;(&amp;self, to: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, complete: MessageTo)</code></span></h3><div class='docblock'><p>Completes a Future.</p>
+</div><h3 id='tymethod.forward_result' class='method'><span id='forward_result.v' class='invisible'><code>fn <a href='#tymethod.forward_result' class='fnname'>forward_result</a>&lt;T:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>&gt;(&amp;self, future: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, to: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>)</code></span></h3><div class='docblock'><p>Tells a future to forward its result to another Actor.
+The Future is then dropped.</p>
+</div><h3 id='tymethod.forward_result_to_future' class='method'><span id='forward_result_to_future.v' class='invisible'><code>fn <a href='#tymethod.forward_result_to_future' class='fnname'>forward_result_to_future</a>&lt;T:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>&gt;(&amp;self, future: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, to: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>)</code></span></h3><div class='docblock'><p>Tells a future to forward its result to another Future that will be completed with this
+result.
+The Future is then dropped.</p>
+</div><h3 id='tymethod.do_computation' class='method'><span id='do_computation.v' class='invisible'><code>fn <a href='#tymethod.do_computation' class='fnname'>do_computation</a>&lt;T:&nbsp;<a class="trait" href="../../../robots/actors/trait.Message.html" title="trait robots::actors::Message">Message</a>, F:&nbsp;<a class="trait" href="https://doc.rust-lang.org/nightly/core/ops/function/trait.Fn.html" title="trait core::ops::function::Fn">Fn</a>(<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html" title="struct alloc::boxed::Box">Box</a>&lt;<a class="trait" href="../../../robots/actors/trait.Any.html" title="trait robots::actors::Any">Any</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a>&gt;, <a class="struct" href="../../../robots/actors/actor_cell/struct.ActorCell.html" title="struct robots::actors::actor_cell::ActorCell">ActorCell</a>) -&gt; T + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Send.html" title="trait core::marker::Send">Send</a> + <a class="trait" href="https://doc.rust-lang.org/nightly/core/marker/trait.Sync.html" title="trait core::marker::Sync">Sync</a> + 'static&gt;(<br>&nbsp;&nbsp;&nbsp;&nbsp;&amp;self, <br>&nbsp;&nbsp;&nbsp;&nbsp;future: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;closure: F<br>)</code></span></h3><div class='docblock'><p>Sends the Future a closure to apply on its value, the value will be updated with the output
+of the closure.</p>
+</div><h3 id='tymethod.stop' class='method'><span id='stop.v' class='invisible'><code>fn <a href='#tymethod.stop' class='fnname'>stop</a>(&amp;self, actor_ref: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>)</code></span></h3><div class='docblock'><p>Requests the targeted actor to stop.</p>
+</div><h3 id='tymethod.kill_me' class='method'><span id='kill_me.v' class='invisible'><code>fn <a href='#tymethod.kill_me' class='fnname'>kill_me</a>(&amp;self)</code></span></h3><div class='docblock'><p>Asks the father of the actor to terminate it.</p>
+</div><h3 id='tymethod.sender' class='method'><span id='sender.v' class='invisible'><code>fn <a href='#tymethod.sender' class='fnname'>sender</a>(&amp;self) -&gt; <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a></code></span></h3><div class='docblock'><p>Returns an Arc to the sender of the message being handled.</p>
+</div><h3 id='tymethod.father' class='method'><span id='father.v' class='invisible'><code>fn <a href='#tymethod.father' class='fnname'>father</a>(&amp;self) -&gt; <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a></code></span></h3><div class='docblock'><p>Father of the actor.</p>
+</div><h3 id='tymethod.children' class='method'><span id='children.v' class='invisible'><code>fn <a href='#tymethod.children' class='fnname'>children</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/std/collections/hash/map/struct.HashMap.html" title="struct std::collections::hash::map::HashMap">HashMap</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/arc/struct.Arc.html" title="struct alloc::arc::Arc">Arc</a>&lt;<a class="enum" href="../../../robots/actors/actor_ref/enum.ActorPath.html" title="enum robots::actors::actor_ref::ActorPath">ActorPath</a>&gt;, <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>&gt;</code></span></h3><div class='docblock'><p>Children of the actor.</p>
+</div><h3 id='tymethod.monitoring' class='method'><span id='monitoring.v' class='invisible'><code>fn <a href='#tymethod.monitoring' class='fnname'>monitoring</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/std/collections/hash/map/struct.HashMap.html" title="struct std::collections::hash::map::HashMap">HashMap</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/arc/struct.Arc.html" title="struct alloc::arc::Arc">Arc</a>&lt;<a class="enum" href="../../../robots/actors/actor_ref/enum.ActorPath.html" title="enum robots::actors::actor_ref::ActorPath">ActorPath</a>&gt;, <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">(</a><a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, <a class="type" href="../../../robots/actors/actor_cell/type.FailureHandler.html" title="type robots::actors::actor_cell::FailureHandler">FailureHandler</a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.tuple.html">)</a>&gt;</code></span></h3><div class='docblock'><p>Lifecycle monitoring, list of monitored actors.</p>
+</div><h3 id='tymethod.monitored_by' class='method'><span id='monitored_by.v' class='invisible'><code>fn <a href='#tymethod.monitored_by' class='fnname'>monitored_by</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>&gt;</code></span></h3><div class='docblock'><p>Actors monitoring this actor.</p>
+</div><h3 id='tymethod.monitor' class='method'><span id='monitor.v' class='invisible'><code>fn <a href='#tymethod.monitor' class='fnname'>monitor</a>(&amp;self, actor: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, handler: <a class="type" href="../../../robots/actors/actor_cell/type.FailureHandler.html" title="type robots::actors::actor_cell::FailureHandler">FailureHandler</a>)</code></span></h3><div class='docblock'><p>Monitor an actor with the given handler.</p>
+</div><h3 id='tymethod.path' class='method'><span id='path.v' class='invisible'><code>fn <a href='#tymethod.path' class='fnname'>path</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/arc/struct.Arc.html" title="struct alloc::arc::Arc">Arc</a>&lt;<a class="enum" href="../../../robots/actors/actor_ref/enum.ActorPath.html" title="enum robots::actors::actor_ref::ActorPath">ActorPath</a>&gt;</code></span></h3><div class='docblock'><p>Logical path to the actor, such as <code>/user/foo/bar/baz</code></p>
+</div><h3 id='tymethod.identify_actor' class='method'><span id='identify_actor.v' class='invisible'><code>fn <a href='#tymethod.identify_actor' class='fnname'>identify_actor</a>(&amp;self, logical_path: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>, request_name: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>) -&gt; <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a></code></span></h3><div class='docblock'><p>Future containing an Option<ActorRef> with an ActtorRef to the Actor with the given logical
+path.</p>
+
+<p>The future will have the path: <code>$actor/$name_request</code></p>
+</div><h3 id='tymethod.tell_control' class='method'><span id='tell_control.v' class='invisible'><code>fn <a href='#tymethod.tell_control' class='fnname'>tell_control</a>(&amp;self, actor: <a class="struct" href="../../../robots/actors/actor_ref/struct.ActorRef.html" title="struct robots::actors::actor_ref::ActorRef">ActorRef</a>, message: <a class="enum" href="../../../robots/actors/actor_cell/enum.ControlMessage.html" title="enum robots::actors::actor_cell::ControlMessage">ControlMessage</a>)</code></span></h3><div class='docblock'><p>Sends a control message to the given actor.</p>
+</div><h3 id='tymethod.fail' class='method'><span id='fail.v' class='invisible'><code>fn <a href='#tymethod.fail' class='fnname'>fail</a>(&amp;self, reason: &amp;'static <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.str.html">str</a>)</code></span></h3><div class='docblock'><p>Puts the actor in a state of failure with the given reason.</p>
+</div></div>
+        <h2 id='implementors' class='small-section-header'>
+          Implementors<a href='#implementors' class='anchor'></a>
+        </h2>
+        <ul class='item-list' id='implementors-list'>
+    <li><code>impl ActorContext for <a class="struct" href="../../../robots/actors/actor_cell/struct.ActorCell.html" title="struct robots::actors::actor_cell::ActorCell">ActorCell</a></code></li>
+</ul><script type="text/javascript" async
+                         src="../../../implementors/robots/actors/actor_cell/trait.ActorContext.js">
+                 </script></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "robots";
+    </script>
+    <script src="../../../main.js"></script>
+    <script defer src="../../../search-index.js"></script>
+</body>
+</html>

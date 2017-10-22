@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ActorPath","Path to an actor."]],"struct":[["ActorRef","An `ActorRef` is the way used to interract with something that acts as an actor."],["ConnectionInfo","This gives connection informations on how to get to the distant actors."]]});

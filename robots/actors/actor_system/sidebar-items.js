@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ActorSystem","The actor system is the struct that manages:"]]});
